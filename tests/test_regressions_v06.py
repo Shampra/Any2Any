@@ -74,14 +74,14 @@ class RegressionV06(unittest.TestCase):
                 {'type':'embed','processor':'youtube','url':'https://youtu.be/AbCdEfGhI01'}]
         issues=set()
         result=render_blocks({'blocks':blocks},{},'sid',{},True,lambda *_:'any://f/sid/newf',issues)
-        self.assertIn('anytype-columns',result)
+        self.assertIn('<!-- any:columns ',result)
         self.assertIn('Gauche',result)
         self.assertIn('Droite',result)
         self.assertIn('Suite',result)
         self.assertIn('<table><tbody>',result)
         self.assertIn('<strong>Produit</strong>',result)
         self.assertIn('width="200"',result)
-        self.assertIn('youtube-nocookie.com/embed/AbCdEfGhI01',result)
+        self.assertIn('https://www.youtube.com/watch?v=AbCdEfGhI01',result)
         self.assertIn('Couleur des cellules du tableau non reproduite',issues)
         self.assertEqual(youtube_embed('https://evil.com/a'),None)
         self.assertEqual(youtube_embed('https://youtu.be/bad'),None)
@@ -97,7 +97,7 @@ class RegressionV06(unittest.TestCase):
         self.assertIn('<colgroup>',result)
         self.assertIn('width:120px',result)
         self.assertIn('<strong>gras</strong>',result)
-        self.assertIn('☑ Validé',result)
+        self.assertIn('aria-checked="true">Validé',result)
 
     def test_image_relative_width_is_percentage_not_pixels(self):
         issues=set()
@@ -108,7 +108,7 @@ class RegressionV06(unittest.TestCase):
         self.assertNotIn('width="45"',result)
 
     def test_native_emoji_attempt_and_safe_fallback(self):
-        responses=[APIError('champ iconEmoji non pris en charge',400),{'objectId':'obj2'}]
+        responses=[APIError('champ icon non pris en charge',400),{'objectId':'obj2'}]
         def req(*args,**kwargs):
             answer=responses.pop(0)
             if isinstance(answer,Exception):raise answer
@@ -119,7 +119,7 @@ class RegressionV06(unittest.TestCase):
         self.assertEqual(oid,'obj2')
         self.assertEqual(call.call_count,2)
         self.assertIn('Icône emoji non reconnue',warnings[0])
-        self.assertIn('iconEmoji',call.call_args_list[0].args[2]['initialProperties']['any'])
-        self.assertNotIn('iconEmoji',call.call_args_list[1].args[2]['initialProperties']['any'])
+        self.assertIn('icon',call.call_args_list[0].args[2]['initialProperties']['any'])
+        self.assertNotIn('icon',call.call_args_list[1].args[2]['initialProperties']['any'])
 
 if __name__=='__main__':unittest.main()

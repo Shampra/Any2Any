@@ -111,3 +111,8 @@ Aucune dépendance Python supplémentaire n'est obligatoire. L'application web s
 - Aucun test de données ni import ne peut être déclenché lorsque les API ne sont pas toutes les deux accessibles ; les contrôles de l’espace de travail deviennent inactifs.
 - Lorsque les API redeviennent accessibles via « Enregistrer et vérifier », l’interface charge les données et réactive les fonctions de migration.
 - Le moteur de migration n’est pas modifié. L’identifiant HTTP du client a été actualisé de `Anytype-Anytwo-Importer/0.8` à `Any2Any/0.9.1`.
+
+
+## Fidélité de conversion après la première publication
+
+La passe sur les vues, filtres, propriétés, colonnes et médias est décrite dans [Fidélité des imports](IMPORT-FIDELITE.fr.md). Elle précise les conversions effectives, les paramètres seulement archivés et les rendus restant à vérifier. Ces modifications ne font pas partie de la première release publiée.

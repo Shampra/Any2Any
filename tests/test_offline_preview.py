@@ -32,9 +32,9 @@ class OfflinePreviewTests(unittest.TestCase):
         self.assertIn('Bêta 0.9.1', self.page)
         self.assertIn('APIs unavailable: preview only.', self.language)
         self.assertIn('APIs nicht verfügbar: nur Vorschau.', self.language)
-        for path in ('README.md', 'README.en.md', 'docs/NOTES-TECHNIQUES.fr.md'):
+        for path in ('README.md', 'README.en.md'):
             text = (ROOT / path).read_text(encoding='utf-8')
-            self.assertIn('0.9.1-beta', text)
+            self.assertNotRegex(text.splitlines()[0], r'v\d+\.\d+')
         self.assertIn("server_version = 'Any2AnyUI/0.9.1'", (ROOT / 'server.py').read_text(encoding='utf-8'))
         self.assertNotIn('Anytype-Anytwo-Importer/0.8', (ROOT / 'api_clients.py').read_text(encoding='utf-8'))
 

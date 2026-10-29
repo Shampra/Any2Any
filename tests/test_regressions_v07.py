@@ -25,7 +25,7 @@ class RegressionV07(unittest.TestCase):
         self.assertIn('<td>a</td>',out)
         self.assertIn('<td>b</td>',out)
         self.assertIn('<td>2</td>',out)
-        self.assertEqual(out.count('<table'),2)
+        self.assertEqual(out.count('<table'),1)
         self.assertNotIn('Tableau dans une colonne non reconstructible',issues)
 
     def test_bookmark_title_is_resolved_from_linked_object(self):
@@ -36,37 +36,32 @@ class RegressionV07(unittest.TestCase):
         self.assertIn('[Feedback - Any](https://say.any.org/?board=improvements)',result)
         self.assertNotIn('[https://say.any.org',result)
 
-    def test_native_html_embed_is_separate_from_markdown(self):
+    def test_youtube_uses_native_envelope_in_document_order(self):
         issues=set(); native=[]
         md=render_blocks({'blocks':[
             {'type':'paragraph','text':'Avant'},
-            {'type':'embed','processor':'youtube','url':'https://www.youtube.com/watch?v=AbCdEfGhI01'},
+            {'type':'embed','processor':'youtube','url':'https://youtu.be/AbCdEfGhI01'},
             {'type':'paragraph','text':'Après'},
-        ]}, {},'s',{},False,lambda *_:None,issues,native_embeds=native)
-        self.assertEqual(len(native),1)
+        ]},{},'s',{},False,None,issues,native_embeds=native)
+        self.assertEqual(native,[])
         self.assertNotIn('<iframe',md)
-        self.assertIn('ANYTWO_NATIVE_EMBED_0000_PLACEHOLDER',md)
-        self.assertIn('youtube-nocookie.com/embed/AbCdEfGhI01',native[0]['html'])
-        calls=[]
-        with patch('migration.set_markdown',side_effect=lambda *a:calls.append(('put',a[-1]))),\
-             patch('migration.append_markdown',side_effect=lambda *a:calls.append(('append',a[-1]))),\
-             patch('migration.create_editor_block',side_effect=lambda *a:calls.append(('block',a[3],a[4]))):
-            write_markdown_with_embeds(None,'sid','obj',md,native,issues)
-        self.assertEqual([x[0] for x in calls],['put','block','append'])
-        self.assertIn('Avant',calls[0][1])
-        self.assertEqual(calls[1][1],'html')
-        self.assertIn('Après',calls[2][1])
+        self.assertIn('"kind":"embed"',md)
+        self.assertLess(md.index('Avant'),md.index('<!-- any:block '))
+        self.assertLess(md.index('<!-- /any:block '),md.index('Après'))
+        with patch('migration.set_markdown') as put, patch('migration.create_editor_block') as block:
+            write_markdown_with_embeds(None,'s','o',md,native,issues)
+        put.assert_called_once_with(None,'s','o',md)
+        block.assert_not_called()
 
-    def test_embed_native_block_rejection_becomes_clickable_link(self):
-        issues=set()
-        with patch('migration.set_markdown'),\
-             patch('migration.create_editor_block',side_effect=APIError('unsupported')):
-            with patch('migration.append_markdown') as append:
-                write_markdown_with_embeds(None,'s','o',
-                    'ANYTWO_NATIVE_EMBED_0000_PLACEHOLDER',
-                    [{'html':'<iframe></iframe>','url':'https://youtu.be/AbCdEfGhI01'}],issues)
-        self.assertIn('Bloc YouTube HTML rejeté : lien externe de remplacement',issues)
-        self.assertIn('[Vidéo YouTube](https://youtu.be/AbCdEfGhI01)',append.call_args.args[-1])
+    def test_legacy_embed_marker_is_upgraded_without_html_block(self):
+        with patch('migration.set_markdown') as put, patch('migration.create_editor_block') as block:
+            write_markdown_with_embeds(None,'s','o','ANYTWO_NATIVE_EMBED_0000_PLACEHOLDER',
+                [{'html':'<iframe></iframe>','url':'https://youtu.be/AbCdEfGhI01'}],set())
+        content=put.call_args.args[-1]
+        self.assertIn('"provider":"youtube"',content)
+        self.assertNotIn('<iframe',content)
+        self.assertNotIn('PLACEHOLDER',content)
+        block.assert_not_called()
 
 
 if __name__=='__main__': unittest.main()

@@ -362,7 +362,14 @@ def anytype_property_definitions(api: Anytype, space_id: str) -> dict:
     rows = paginated(api.port, f'/v2/spaces/{sid}/properties', api.key)
     mapping = {}
     for prop in rows:
-        for name in (prop.get('key'), prop.get('name'), prop.get('id')):
+        if prop.get('format') in ('select','multi_select') and not prop.get('options'):
+            identifier=prop.get('id') or prop.get('key')
+            if identifier:
+                try:
+                    prop['options']=paginated(api.port, f'/v1/spaces/{sid}/properties/{_segment(identifier)}/tags', api.key)
+                except APIError:
+                    prop['_options_unavailable']=True
+        for name in (prop.get('key'), prop.get('name'), prop.get('id'), prop.get('internal_key')):
             if name:
                 mapping[str(name).casefold()] = prop
     return mapping
@@ -405,7 +412,7 @@ def create_object(api: Anytwo, sid, name, collections, emoji=None, icon_warnings
             'initialProperties': {'any': {'name': name}}}
     if emoji:
         candidate = json.loads(json.dumps(base))
-        candidate['initialProperties']['any']['iconEmoji'] = emoji
+        candidate['initialProperties']['any']['icon'] = emoji
         try:
             answer = target_write(api, f'/spaces/{_segment(sid)}/objects', candidate)
             oid = answer.get('objectId')
@@ -433,7 +440,10 @@ def list_columns(api: Anytwo, sid, cid):
 
 def add_column(api: Anytwo, sid, cid, name, xkey, kind, fmt=None):
     payload = {'name': name, 'xKey': xkey, 'kind': kind}
-    if fmt: payload['xFormat'] = fmt
+    if fmt:
+        payload['xFormat'] = fmt
+        source_settings=json.loads((fmt.get('any2any') or {}).get('sourceSettings') or '{}')
+        if source_settings.get('description'):payload['description']=source_settings['description']
     data = target_write(api, f'/spaces/{_segment(sid)}/collections/{_segment(cid)}/properties', payload)
     pid = data.get('propId')
     if not pid: raise APIError('Création de la propriété : ID absent de la réponse.')
