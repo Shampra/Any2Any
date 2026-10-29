@@ -1,0 +1,21 @@
+# Fichiers temporaires / environnements
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
+Thumbs.db
+
+# Journaux et résultats réels pouvant contenir des données privées
+reports/
+logs/
+*.log
+bilan-import-*.json
+
+# Secrets et préférences locaux
+.env
+.env.*
+config.local.json
+secrets.json
+*.api-key

@@ -1,0 +1,9 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Any2Any · Autorisation Anytype</title><link rel="stylesheet" href="/style.css"></head><body class="pair-body">
+<main class="pair-card"><label class="language-picker pair-language"><span class="visually-hidden">Langue</span><select data-language-choice aria-label="Langue de l’interface"><option value="fr">FR</option><option value="en">EN</option><option value="de">DE</option></select></label><div class="eyebrow">CONNEXION SÉCURISÉE</div><h1>Autoriser l’accès à Anytype</h1>
+<p>L’application Anytype vous demande de choisir les espaces autorisés, puis affiche un code à quatre chiffres.</p>
+<div class="pair-hint"><strong>Où saisir ce code ?</strong> Ici, dans cette petite fenêtre. Si Anytype passe au premier plan, revenez à cette fenêtre avec <strong>Alt+Tab</strong> (Windows). Vous pouvez laisser Anytype ouvert derrière.</div>
+<label for="code">Code affiché dans Anytype</label><input id="code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="one-time-code" placeholder="0000" disabled autofocus>
+<div id="status" class="pair-status" role="status">Initialisation de la demande…</div>
+<button class="btn primary" id="submit" disabled>Autoriser l’accès</button><button class="btn ghost" id="retry" hidden>Relancer la demande</button>
+<p class="pair-note">Le code ne peut pas être lu automatiquement par l’API : cette validation protège l’accès à vos données. Anytype peut afficher le nom du processus « Python » lorsque l’outil est lancé comme script.</p>
+</main><script src="/i18n.js" defer></script><script src="/pair.js" defer></script></body></html>
