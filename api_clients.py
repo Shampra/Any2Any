@@ -28,7 +28,7 @@ def local_get(port: int, path: str, *, method='GET', body: dict | None = None,
     url = f'http://127.0.0.1:{int(port)}{path}'
     data = json.dumps(body).encode('utf-8') if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
-                                 headers={'Accept': 'application/json', 'User-Agent': 'Any2Any/0.9.1',
+                                 headers={'Accept': 'application/json', 'User-Agent': 'Any2Any/0.9.2',
                                           **({'Content-Type': 'application/json'} if body is not None else {}),
                                           **(headers or {})})
     try:
@@ -335,7 +335,7 @@ def discover_anytwo_port(preferred: int | None = None) -> int | None:
 def local_binary(port, path, *, method='GET', data=None, content_type=None,
                  headers=None, max_bytes=100 * 1024 * 1024, timeout=45):
     """Bounded binary transfer, loopback only, and no environment proxies."""
-    req_headers = {'User-Agent': 'Any2Any/0.9.1', **(headers or {})}
+    req_headers = {'User-Agent': 'Any2Any/0.9.2', **(headers or {})}
     if content_type:
         req_headers['Content-Type'] = content_type
     req = urllib.request.Request(f'http://127.0.0.1:{int(port)}{path}',

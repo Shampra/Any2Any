@@ -1,6 +1,6 @@
-# Any2Any — Migrateur Anytype → Anytwo (v0.9.1-beta)
+# Any2Any — Migrateur Anytype → Anytwo (v0.9.2)
 
-**Version du projet : 0.9.1-beta.** Les sections « Changements v0.8 » et « Changements v0.9 » ci-dessous constituent un historique des évolutions, pas la version actuelle du projet. Le moteur d’import provient de la v0.8, tandis que les traductions et l’identité Any2Any ont été ajoutées en v0.9.
+**Version du projet : 0.9.2.** Les sections de changements ci-dessous retracent les versions précédentes. Les améliorations actuelles sont détaillées dans [le journal bilingue](../CHANGELOG.md) et [la fidélité des imports](IMPORT-FIDELITE.fr.md).
 
 Application Python + interface web locale permettant d'importer des espaces, collections, types et objets Anytype dans Anytwo. **L'import simple crée réellement des données dans Anytwo.** La source Anytype est toujours interrogée en lecture seule. L'option « Avec synchronisation » n'est **pas encore opérationnelle** et ne permet pas l'import réel.
 

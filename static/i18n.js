@@ -7,9 +7,9 @@
   const messages={
     'Any2Any · Importer':['Any2Any · Import','Any2Any · Importieren'],
     'Any2Any · Autorisation Anytype':['Any2Any · Anytype authorization','Any2Any · Anytype-Autorisierung'],
-    'Anytype → Anytwo · Outil de migration · Bêta 0.9.1':['Anytype → Anytwo · Migration tool · Beta 0.9.1','Anytype → Anytwo · Migrationstool · Beta 0.9.1'],
+    'Anytype → Anytwo · Outil de migration · Bêta 0.9.2':['Anytype → Anytwo · Migration tool · Beta 0.9.2','Anytype → Anytwo · Migrationstool · Beta 0.9.2'],
     'Autorisation Anytype · Importateur':['Anytype authorization · Importer','Anytype-Autorisierung · Importer'],
-    'Outil de migration · Bêta 0.9.1':['Migration tool · Experimental beta 0.9.1','Migrationstool · Experimentelle Beta 0.9.1'],
+    'Outil de migration · Bêta 0.9.2':['Migration tool · Experimental beta 0.9.2','Migrationstool · Experimentelle Beta 0.9.2'],
     'Mode démo':['Demo mode','Demomodus'],
     'Vérification des API':['Checking APIs','APIs werden geprüft'],
     'MIGRATION LOCALE':['LOCAL MIGRATION','LOKALE MIGRATION'],

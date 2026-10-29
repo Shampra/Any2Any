@@ -145,7 +145,7 @@ class DemoAnytype:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'Any2AnyUI/0.9.1'
+    server_version = 'Any2AnyUI/0.9.2'
     def log_message(self, fmt, *args):
         if os.getenv('IMPORTER_DEBUG'):
             super().log_message(fmt, *args)
