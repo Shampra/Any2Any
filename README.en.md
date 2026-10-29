@@ -1,4 +1,4 @@
-# Any2Any — Anytype → Anytwo Migrator (v0.9.1-beta)
+# Any2Any — Anytype → Anytwo Migrator
 
 **[Français](README.md) · [English](README.en.md)**
 
