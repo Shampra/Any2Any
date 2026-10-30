@@ -18,6 +18,7 @@ Il propose une **interface web locale** pour parcourir les espaces Anytype, sél
 - **Sélection ciblée** : espaces, collections, types et objets Anytype ; ajout facultatif des objets liés.
 - **Choix des destinations** : espaces et collections Anytwo existants ou à créer.
 - **Import de contenu** : pages, propriétés et relations, textes mis en forme, liens, images et autres fichiers, dans la limite des capacités de conversion actuelles.
+- **Archives des chats (option)** : chats exclus par défaut ; une page d’archive par chat de l’espace source, avec auteurs, dates, réponses, réactions et pièces jointes selon l’option fichiers.
 - **Import local** : les échanges passent par les API ouvertes par les applications sur votre machine ; Anytype reste en lecture seule.
 - **Simulation avant import** : bouton **Tester** pour examiner le périmètre prévu sans écrire dans Anytwo.
 - **Rapport après import** : objets importés, raisons de leur sélection, adaptations, limitations et erreurs, exportable en JSON.

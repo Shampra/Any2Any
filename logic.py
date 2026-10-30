@@ -216,7 +216,7 @@ def simulate(anytype, inventory, plan):
     selected = []
     additional_collections = []
     if kind == 'space':
-        selected = inventory['objects']
+        selected = inventory['objects']+inventory['collections']
         yield f'ESPACE : {source_space.get("name", "?")} — {len(selected)} objets, {len(inventory["collections"])} collections et {len(inventory["types"])} types.'
         additional_collections = [x['name'] for x in inventory['collections']]
         additional_collections += [t['name'] for t in inventory['types'] if not t['generic'] or requires_collection(t)]
@@ -285,7 +285,7 @@ def simulate(anytype, inventory, plan):
             yield f'→ Utilisation de la collection « {target.get("collection_name", "?")} ».'
 
     files = bool(plan.get('files'))
-    follow = bool(plan.get('follow_links'))
+    follow = bool(plan.get('follow_links')) and kind!='space'
     yield f'OPTIONS : fichiers {"inclus" if files else "ignorés"}, liens {"suivis" if follow else "non suivis"}.'
     if files:
         yield 'FICHIERS : transfert prévu, pièces jointes non inspectées dans ce prototype.'
@@ -293,6 +293,9 @@ def simulate(anytype, inventory, plan):
     for items in inventory['members'].values():
         indexed.update({x['id']: x for x in items})
     ids = set(indexed)
+    from source_views import SourceViews
+    from view_conversion import UnsupportedView
+    view_sources=SourceViews(anytype,source_space['id'],inventory)
     queued = deque(selected)
     visited = set()
     selected_ids = {x['id'] for x in selected}
@@ -306,8 +309,17 @@ def simulate(anytype, inventory, plan):
         visited.add(oid)
         yield f'OBJET : {obj["name"]} — serait importé.'
         try:
-            doc = anytype.object_detail(source_space['id'], oid)
-            for ref in sorted(identify_links(doc, ids, oid)):
+            doc = view_sources.document(oid)
+            structural=set();view_ids=set()
+            for block in doc.get('blocks') or []:
+                if not isinstance(block,dict) or block.get('type')!='dataview':continue
+                if block.get('object_id'):structural.add(block['object_id'])
+                if follow:
+                    try:view_ids.update(view_sources.matching(doc,block))
+                    except (APIError,UnsupportedView,ValueError,TypeError,KeyError) as exc:
+                        yield '  ! Documents de vue intégrée non résolus : '+str(exc)
+            indexed.update(view_sources.items)
+            for ref in sorted((identify_links(doc, ids, oid)-structural)|view_ids):
                 target_name = indexed[ref]['name']
                 if ref in visited or any(x['id'] == ref for x in queued):
                     continue
@@ -315,7 +327,8 @@ def simulate(anytype, inventory, plan):
                     queued.append(indexed[ref])
                     if ref not in selected_ids:
                         extra += 1
-                    yield f'  ↳ Lien vers « {target_name} » : objet ajouté au périmètre.'
+                    if ref in view_ids:yield f'  ↳ Document de vue intégrée « {target_name} » : objet ajouté au périmètre.'
+                    else:yield f'  ↳ Lien vers « {target_name} » : objet ajouté au périmètre.'
                 elif ref not in selected_ids:
                     yield f'  ↳ Lien vers « {target_name} » : non suivi (option désactivée).'
         except APIError as exc:
@@ -325,4 +338,12 @@ def simulate(anytype, inventory, plan):
             yield '! Limite de sécurité de 5 000 objets atteinte : analyse arrêtée.'
             break
     yield f'BILAN : {len(visited)} objet(s) prévu(s), {extra} ajouté(s) par les liens, {errors} erreur(s) de lecture.'
+    if plan.get('archive_chats'):
+        from chat_archives import histories
+        archives=histories(anytype,source_space['id'])
+        for chat in archives:
+            yield f'ARCHIVE CHAT : {chat["name"]} — {len(chat["messages"])} message(s), une page prévue.'
+        yield f'CHATS : {len(archives)} archive(s) supplémentaire(s), tous les chats de l’espace source.'
+    else:
+        yield 'CHATS : exclus (option archives désactivée).'
     yield 'TERMINÉ : simulation uniquement. Aucun objet n’a été créé, modifié ou téléchargé.'

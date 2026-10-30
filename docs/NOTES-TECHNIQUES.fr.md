@@ -1,10 +1,10 @@
-# Any2Any — Migrateur Anytype → Anytwo (v0.9.2)
+# Any2Any — Migrateur Anytype → Anytwo (v0.9.3)
 
-**Version du projet : 0.9.2.** Les sections de changements ci-dessous retracent les versions précédentes. Les améliorations actuelles sont détaillées dans [le journal bilingue](../CHANGELOG.md) et [la fidélité des imports](IMPORT-FIDELITE.fr.md).
+**Version du projet : 0.9.3.** Les sections de changements ci-dessous retracent les versions précédentes. Les améliorations actuelles sont détaillées dans [le journal bilingue](../CHANGELOG.md) et [la fidélité des imports](IMPORT-FIDELITE.fr.md).
 
 Application Python + interface web locale permettant d'importer des espaces, collections, types et objets Anytype dans Anytwo. **L'import simple crée réellement des données dans Anytwo.** La source Anytype est toujours interrogée en lecture seule. L'option « Avec synchronisation » n'est **pas encore opérationnelle** et ne permet pas l'import réel.
 
-> **À lire avant un premier essai** : cette version a été testée avec des API HTTP locales simulées et un navigateur automatisé, **pas** avec les clients Anytype et Anytwo réellement installés chez les utilisateurs. L'API Anytype v2 est une préversion évolutive. Commencez avec 1 ou 2 pages et un **espace Anytwo de test**, sauvegardez vos données et comparez le résultat. Il n'existe **aucun retour arrière automatique**. Un deuxième import simple créera de nouvelles copies.
+> **À lire avant un premier essai** : les tests automatisés avec des API HTTP locales simulées sont complétés par des vérifications ciblées des API et du code du client installé, ainsi que par des essais manuels du propriétaire du projet. Cela ne constitue pas une validation exhaustive de tous les contenus. L'API Anytype v2 est une préversion évolutive. Commencez avec 1 ou 2 pages et un **espace Anytwo de test**, sauvegardez vos données et comparez le résultat. Il n'existe **aucun retour arrière automatique**. Un deuxième import simple créera de nouvelles copies.
 
 ## Démarrer sous Windows
 

@@ -12,9 +12,12 @@ import hashlib
 from copy import deepcopy
 from rich_content import (ImportedFile, inline_html, native_columns, native_toggle,
                           descendant_end, rebase, depth as block_depth, youtube_markdown,
-                          file_html, file_anchor_html, checkbox_html, remove_unsupported_inline)
+                          file_html, file_anchor_html, checkbox_html, remove_unsupported_inline, image_markdown, image_width)
+from file_transfer import FileLibrary, strip_import_prefix
 from view_conversion import (choice_options, enrich_descriptor, ViewConverter,
-                             create_saved_views, UnsupportedView)
+                             create_saved_views, modify_records, UnsupportedView)
+from source_views import SourceViews, source_value, MISSING
+from inline_views import instance_id, inline_markdown, inline_records, property_names
 import html
 import json
 import mimetypes
@@ -25,7 +28,8 @@ from urllib.parse import quote, unquote, urlparse, parse_qs
 from api_clients import (APIError, anytype_download, anytype_property_definitions,
                          create_space, create_collection, create_object, list_columns,
                          add_column, set_column_value, set_markdown, append_markdown,
-                         attach_file, get_file_info, create_editor_block)
+                         attach_file, get_file_info, create_editor_block, add_membership, target_write, local_get, _segment)
+from chat_archives import histories as chat_histories, markdown as chat_markdown
 from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation
 
 MAX_OBJECTS = 500
@@ -100,7 +104,9 @@ def file_metadata(doc):
         candidate=normalized_mime(normalized.get(key))
         if candidate and candidate not in GENERIC_MIMES:mime=candidate;break
     ext=str(normalized.get('extension') or normalized.get('fileext') or normalized.get('fileextension') or '').strip().lstrip('.')
-    if name and re.fullmatch('[a-zA-Z0-9]{1,12}',ext) and not has_file_extension(name):name+='.'+ext
+    if name and re.fullmatch('[a-zA-Z0-9]{1,12}',ext) and not name.casefold().endswith('.'+ext.casefold()):name+='.'+ext
+    if normalized.get('origin') in ('clipboard','import','imported'):
+        name=strip_import_prefix(name)
     return name,mime
 
 
@@ -200,7 +206,7 @@ def select_scope(inv, plan):
     selected_cols = []
     target = plan.get('target') or {}
     if kind == 'space':
-        roots = inv['objects'][:]
+        roots = inv['objects'][:]+inv['collections'][:]
         selected_cols = inv['collections'][:]
         for item in roots: reasons[item['id']] = [f'Sélectionné via l’espace « {plan["source_space"]["name"]} »']
     elif kind == 'collection':
@@ -234,8 +240,9 @@ def select_scope(inv, plan):
     return list(unique.values()), reasons, selected_cols
 
 
-def discover_documents(source, sid, inv, selected, reasons, follow):
-    indexed = {item['id']:item for item in inv['objects'] if not is_conversation(item)}
+def discover_documents(source, sid, inv, selected, reasons, follow, view_sources=None):
+    view_sources=view_sources or SourceViews(source,sid,inv)
+    indexed = {item['id']:item for item in inv['all'] if not is_conversation(item)}
     # Also reference collection entities by name; they are not imported as pages.
     all_ids = {item['id'] for item in inv['all']}
     queue = deque(selected)
@@ -250,7 +257,7 @@ def discover_documents(source, sid, inv, selected, reasons, follow):
             raise APIError(f'Limite de sécurité : plus de {MAX_OBJECTS} objets dans le périmètre. Aucune écriture effectuée.')
         entries[oid] = obj
         try:
-            doc = source.object_detail(sid, oid)
+            doc = view_sources.document(oid)
             if not isinstance(doc, dict): raise APIError('Réponse objet non JSON.')
             if is_conversation(doc):
                 problems.append((oid, 'Chat / discussion ignoré (non importable)'))
@@ -259,7 +266,23 @@ def discover_documents(source, sid, inv, selected, reasons, follow):
         except (APIError, ValueError) as e:
             problems.append((oid, f'Lecture de la source impossible : {e}'))
             continue
-        links = identify_links(doc, all_ids, oid)
+        structural=set()
+        for block in doc.get('blocks') or []:
+            if not isinstance(block,dict) or block.get('type')!='dataview':continue
+            if block.get('object_id'):structural.add(block['object_id'])
+            try:
+                # Resolve even without follow, so conversion later uses the same
+                # source definition. Only follow expands the import perimeter.
+                view_sources.resolve(doc,block)
+                if follow:
+                    for ref in view_sources.matching(doc,block):
+                        if ref in view_sources.items:indexed.setdefault(ref,view_sources.items[ref])
+                        if ref in indexed and ref not in entries and not any(x['id']==ref for x in queue):
+                            reasons.setdefault(ref,[]).append(f'Document de la vue intégrée de « {obj["name"]} »')
+                            queue.append(indexed[ref])
+            except (APIError,UnsupportedView,ValueError,TypeError,KeyError) as exc:
+                problems.append((oid,'Documents de vue intégrée non résolus : '+str(exc)))
+        links = identify_links(doc, all_ids, oid)-structural
         for ref in sorted(links):
             if ref in entries or any(x['id']==ref for x in queue): continue
             if ref not in indexed:
@@ -531,7 +554,9 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
                 txt=cleaned
             prefix = TEXT[typ]
             if typ == 'quote': prefix = '> '
-            lines.append((pad + prefix + txt).rstrip())
+            # A blank source paragraph is intentional spacing; Markdown
+            # blank lines alone collapse. A zero-width character keeps a node.
+            lines.append((pad + prefix + (txt if txt else '\u200b')).rstrip())
         elif typ == 'checkbox':
             lines.append(pad + ('- [x] ' if block.get('checked') else '- [ ] ') + txt)
         elif typ in ('code',):
@@ -562,18 +587,9 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
                 try:
                     uri = file_import(fid, name, block.get('mime_type'))
                     name=getattr(uri,'name',name)
-                    width=block_width(block)
-                    raw_width=block.get('width')
-                    if raw_width is None and isinstance(block.get('fields'),dict): raw_width=block['fields'].get('width')
-                    if raw_width is None and isinstance(block.get('style'),dict): raw_width=block['style'].get('width')
-                    if typ=='image' and width and rich_mode:
-                        try: relative=0<float(raw_width)<=1
-                        except (TypeError,ValueError):relative=False
-                        width_attr=(f' style="width:{width}%;max-width:100%"' if relative else f' width="{width}" style="max-width:100%"')
-                        lines.append(f'<img src="{html.escape(uri,quote=True)}" alt="{html.escape(name,quote=True)}"'+width_attr+'>')
-                        issues.add('Largeur de l’image conservée en HTML (rendu à vérifier)')
-                    else:
-                        lines.append(f'![{name}]({uri})' if typ=='image' else file_html(uri,name))
+                    if typ=='image' and block.get('style')!='link':
+                        lines.append(image_markdown(uri,name,image_width(block,uri,issues)))
+                    else:lines.append(file_html(uri,name))
                 except (APIError, ValueError) as e:
                     issues.add(f'Fichier indisponible : {name} ({e})')
                     lines.append(f'> **Attention : fichier non importé : {name}.**')
@@ -602,6 +618,9 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
             value = (doc.get('properties') or {}).get(field, '')
             lines.append(f'> **Attention : propriété intégrée non reproduite : {field}.**' +
                          (f' Valeur source : {json.dumps(value, ensure_ascii=False)}' if value else ''))
+        elif typ == 'any2any_inline_view':
+            lines.append(block['markdown'])
+            if block.get('failed'):lines.append('> **Attention : certaines vues secondaires n’ont pas été converties.**')
         elif typ == 'any2any_saved_view':
             lines.append(titled_link('Vue : '+str(block.get('name') or 'Anytype'), 'any://o/'+sid+'/'+block['target_id']))
             if block.get('failed'):
@@ -782,7 +801,13 @@ class Engine:
         self.dest_sid = None
         self.col_cache={}; self.prop_cache={}; self.upload_cache={}; self.mapping={}; self.property_owner={}
         self.source_file_metadata_cache={}
+        self.source_file_dimensions={}
+        self.file_libraries={}
+        self.existing_collections=set()
+        self.memberships={}
         self.property_bindings={}
+        self.written_properties={}
+        self.source_views=SourceViews(source,self.sid,inventory)
         self.collection_documents={}
         self.view_reports=[]
         self.view_hosts={}
@@ -817,6 +842,7 @@ class Engine:
         if key in self.col_cache: return self.col_cache[key]
         if existing:
             cid=existing
+            self.existing_collections.add(cid)
         else:
             cid=create_collection(self.target,self.dest_sid,name,slug(name,key))
             self.report['created'].setdefault('collections',[]).append(name)
@@ -873,6 +899,117 @@ class Engine:
         return self.prop_cache[key]
 
 
+    def inline_scope(self, source_id, block, source_ids, converter, issues):
+        # A view is not a supertag. Reuse the actual source collection/type;
+        # never manufacture one collection for each inline block.
+        host,_,_=self.source_views.resolve(self.source_views.document(source_id),block)
+        ref=block.get('object_id') or source_id
+        if host.get('type')=='collection' or host.get('type_internal_key')=='collection' or (not block.get('object_id') and block.get('is_collection')):
+            scope=self.col('collection:'+ref,self.names.get(ref) or (host.get('properties') or {}).get('name') or 'Collection Anytype')
+        else:
+            source=host.get('query_source')
+            if host.get('kind')=='object_type':source={'types':[host.get('internal_key')]}
+            if not isinstance(source,dict) or len(source.get('types',[]))!=1 or source.get('properties'):
+                raise UnsupportedView('Source composée de vue en ligne non représentable sans collection artificielle')
+            key=str(source['types'][0]).removeprefix('type-').removeprefix('ot-')
+            typ=next((t for t in self.inv.get('types',[]) if key in (t['key'],t.get('id'))),{})
+            key=typ.get('key') or key
+            scope=self.type_column(key,typ.get('name') or self.names.get(ref) or key)
+            if not scope:raise UnsupportedView('Type source sans collection de destination')
+        included=[oid for oid in source_ids if oid in self.mapping]
+        if scope in self.existing_collections:
+            try:
+                outside=local_get(self.target.port,f'/v1/spaces/{_segment(self.dest_sid)}/objects/query',
+                    method='POST',body={'filter':{'$and':[{'any.collections':scope},
+                        {'id':{'$nin':[self.mapping[oid] for oid in included]}}]},'limit':1})
+            except (APIError,AttributeError) as exc:
+                raise UnsupportedView('Périmètre de la collection cible existante non vérifiable : '+str(exc))
+            if outside.get('records'):
+                raise UnsupportedView('Collection cible existante contenant des documents hors périmètre source : vue non élargie')
+        omitted=len(source_ids)-len(included)
+        if omitted:issues.add(f'Vue limitée au périmètre importé : {omitted} membre(s) source non importé(s)')
+        for oid in included:
+            owned=self.memberships.setdefault(oid,set())
+            if scope not in owned:
+                add_membership(self.target,self.dest_sid,self.mapping[oid],scope)
+                owned.add(scope)
+        bindings={};mirrored={}
+        names=list(dict.fromkeys(n for view in block.get('views',[]) for n in property_names(view)))
+        # Every custom field belongs in the source collection, including fields
+        # hidden by this particular view. Mirror values and descriptors together.
+        for oid in included:
+            for saved in self.written_properties.get(oid,{}).values():
+                spec=saved.get('spec',{});name=str(spec.get('key') or spec.get('internal_key') or saved.get('label') or '')
+                if not name:continue
+                if name not in names:names.append(name)
+        for name in names:
+            if name.casefold()=='name':continue
+            candidates=[] if name=='type' else converter.bindings.get(name.casefold(),[])
+            if included:
+                owners={owner for oid in included for owner in self.memberships.get(oid,set())}
+                owners.update(self.property_owner.get(oid) for oid in included)
+                candidates=[c for c in candidates if c[0].split('.')[0] in owners or
+                    any(c[0] in self.written_properties.get(oid,{}) for oid in included)]
+            if candidates:
+                identities={str(spec.get('internal_key') or spec.get('key') or spec.get('id') or name).casefold()
+                            for _,spec,_ in candidates}
+                if len(identities)>1:
+                    raise UnsupportedView('Propriétés homonymes distinctes dans la source : '+name)
+                # One source property can be carried by several destination type
+                # collections. They are storage locations, not distinct columns.
+                preferred=next((c for c in candidates if c[0].split('.')[0]==scope),candidates[0])
+                path,spec,form=preferred
+                target_binding=next((mirrored[c[0]] for c in candidates if c[0] in mirrored),None)
+                if target_binding is None:
+                    if path.split('.')[0]==scope:target_binding=preferred
+                    else:
+                        kind=declared_column_shape({**spec,'format':spec.get('format') or 'text'})[0]
+                        pid,actual=self.property(scope,str(spec.get('name') or name),spec.get('format') or 'text',None,issues,converter.metadata,
+                            override=(kind,deepcopy(form)))
+                        target_binding=(scope+'.'+pid,spec,actual)
+                    for oid in included:
+                        values=[]
+                        for source_path,source_spec,source_form in candidates:
+                            saved=self.written_properties.get(oid,{}).get(source_path)
+                            if saved is None:continue
+                            value=deepcopy(saved['value'])
+                            if source_spec.get('format') in ('select','multi_select'):
+                                options=target_binding[2].get('options',{})
+                                target_keys={v['name']:k for k,v in options.items()}
+                                value=[target_keys[source_form['options'][k]['name']] for k in value]
+                            if value not in values:values.append(value)
+                        if len(values)>1:raise UnsupportedView('Valeurs contradictoires pour la propriété source : '+name)
+                        if values and target_binding[0] not in self.written_properties.get(oid,{}):
+                            set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,target_binding[0].split('.',1)[1],values[0])
+                for source_path,_,_ in candidates:mirrored[source_path]=target_binding
+                bindings[name.casefold()]=[target_binding]
+                continue
+            # System fields are absent from custom-property migration. Preserve
+            # source values as ordinary scope columns instead of sorting on the
+            # new import timestamps of the destination objects.
+            found=[]
+            for oid in included:
+                doc=self.source_views.document(oid)
+                value=source_value(doc,name,self.source_views.items.get(oid))
+                if value is not MISSING:found.append((oid,value))
+            declared=next((v for v in block.get('properties',[]) if str(v.get('property','')).casefold()==name.casefold()),{})
+            spec=deepcopy(converter.metadata.get(name.casefold()) or declared)
+            if name=='type':spec={'name':'Type','format':'text'}
+            if not found and not spec:continue
+            fmt=spec.get('format') or ('date' if name in ('created_date','last_modified_date','last_opened_date') else 'text')
+            if name=='type':fmt='text'
+            spec.update(format=fmt,name=spec.get('name') or name)
+            kind,form=declared_column_shape(spec)
+            if fmt=='date' and found and any('T00:00:00' not in str(column_shape(fmt,v,issues)[2].get('$date','')) for _,v in found):
+                form['type']='datetime'
+            pid,actual=self.property(scope,spec['name'],fmt,found[0][1] if found else None,issues,converter.metadata,override=(kind,form))
+            bindings[name.casefold()]=[(scope+'.'+pid,spec,actual)]
+            for oid,value in found:
+                _,_,value=column_shape(fmt,value,issues)
+                set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,pid,value)
+        return scope,ViewConverter(bindings,converter.mapping,converter.type_collections,converter.metadata)
+
+
     def convert_views(self, doc, target_id, converter, issues, source_id):
         doc=deepcopy(doc)
         blocks=doc.get('blocks') or []
@@ -884,19 +1021,35 @@ class Engine:
             original=deepcopy(block)
             report={'source_id':source_id,'block_id':block.get('id'), 'source':original, 'status':'unsupported'}
             try:
-                source_host=doc
+                source_host,source_ids,views=self.source_views.resolve(doc,block)
                 reference=block.get('object_id')
-                if reference and reference!=source_id:
-                    source_host=self.collection_documents.get(reference)
-                    if source_host is None:
-                        source_host=self.source.object_detail(self.sid,reference)
-                members=[x['id'] for x in self.inv['members'].get(reference or source_id,[])]
-                if any(c['id']==(reference or source_id) for c in self.inv['collections']):
-                    source_host={**source_host,'type_internal_key':'collection'}
-                view_id,failed=create_saved_views(self.target,self.dest_sid,target_id,block,source_host,members,converter,issues,
-                    root_id=self.view_hosts.get(target_id), table_key=f'table-{block_index:06d}')
-                self.view_hosts[target_id]=view_id
-                block.clear(); block.update({'type':'any2any_saved_view','name':original.get('name'),'target_id':view_id,'failed':failed,'indent':original.get('indent',0)})
+                block['views']=views
+                table_key=instance_id(target_id,str(block.get('id') or block_index))
+                if target_id in self.mapping.values():
+                    scope,scoped_converter=self.inline_scope(source_id,block,source_ids,converter,issues)
+                    records,failed=inline_records(scoped_converter,block,scope,table_key,issues)
+                    view_id=self.view_hosts.get(target_id)
+                    if view_id is None:
+                        root=target_write(self.target,f'/spaces/{_segment(self.dest_sid)}/objects',{
+                            'type':'dataview','initialProperties':{'any':{'name':'Vues Anytype'},'dataview':{'host':target_id}}})
+                        view_id=root.get('objectId')
+                    if not view_id:raise APIError('Objet de vues créé sans identifiant')
+                    modify_records(self.target,self.dest_sid,view_id,'dataviews',[
+                        {'id':table_key,'name':block.get('name') or views[0].get('name') or 'Vue Anytype','pos':f'a{block_index:06d}'}])
+                    modify_records(self.target,self.dest_sid,view_id,'views',records)
+                    self.view_hosts[target_id]=view_id
+                    markup=inline_markdown(self.dest_sid,target_id,table_key,
+                        block.get('name') or views[0].get('name') or 'Vue Anytype',scope)
+                    block.clear();block.update({'type':'any2any_inline_view','markdown':markup,
+                        'failed':failed,'indent':original.get('indent',0)})
+                else:
+                    members=source_ids
+                    table_key='default'
+                    view_id,failed=create_saved_views(self.target,self.dest_sid,target_id,block,source_host,members,converter,issues,
+                        root_id=self.view_hosts.get(target_id),table_key=table_key)
+                    self.view_hosts[target_id]=view_id
+                    block.clear();block.update({'type':'any2any_saved_view','name':original.get('name'),
+                        'target_id':view_id,'failed':failed,'indent':original.get('indent',0)})
                 report.update(status='partial' if failed else 'created',target_id=view_id,errors=failed)
             except (UnsupportedView,APIError,TypeError,ValueError,KeyError) as exc:
                 issues.add('Vue non convertie : '+str(exc))
@@ -906,38 +1059,45 @@ class Engine:
         return doc
 
     def add_file(self, oid, fid, name, mime):
-        key=(oid,fid)
-        if key in self.upload_cache: return self.upload_cache[key]
-        original_name = safe_filename(name)
-        # Property attachments currently arrive with a synthetic filename
-        # e.g. "Documents-bafyrei...". Resolve the file object's actual name
-        # before uploading so Anytwo can identify formats by extension.
-        extra_mime = ''
-        if not has_file_extension(original_name):
-            inventory_name = safe_filename(self.names.get(fid, ''))
-            if has_file_extension(inventory_name):
-                original_name = inventory_name
-            else:
-                if fid not in self.source_file_metadata_cache:
-                    try:
-                        self.source_file_metadata_cache[fid] = file_metadata(
-                            self.source.object_detail(self.sid, fid))
-                    except (APIError, AttributeError, ValueError, TypeError):
-                        self.source_file_metadata_cache[fid] = ('', '')
-                source_name, extra_mime = self.source_file_metadata_cache[fid]
-                if source_name:
-                    original_name = source_name
-        original_name = original_name or ('fichier-' + str(fid)[:14])
-        content, detected = anytype_download(self.source, self.sid, fid)
-        declared = mime if normalized_mime(mime) not in GENERIC_MIMES else extra_mime
-        actual_mime = resolve_file_mime(original_name, declared, detected)
+        # A source payload is shared across pages, while references stay space-local.
+        key=(self.dest_sid,fid)
+        if key in self.upload_cache:return self.upload_cache[key]
+        original_name=safe_filename(name)
+        inventory_name=safe_filename(self.names.get(fid,''))
+        extra_mime=''
+        if has_file_extension(inventory_name) and strip_import_prefix(inventory_name)==inventory_name:
+            original_name=inventory_name
+        else:
+            if fid not in self.source_file_metadata_cache:
+                try:
+                    detail=self.source.object_detail(self.sid,fid)
+                    self.source_file_metadata_cache[fid]=file_metadata(detail)
+                    props=detail.get('properties') or {}
+                    self.source_file_dimensions[fid]=(props.get('width_in_pixels'),props.get('height_in_pixels'))
+                except (APIError,AttributeError,ValueError,TypeError):
+                    self.source_file_metadata_cache[fid]=('','')
+            source_name,extra_mime=self.source_file_metadata_cache[fid]
+            if source_name:original_name=source_name
+            elif inventory_name:original_name=inventory_name
+        original_name=original_name or ('fichier-'+str(fid)[:14])
+        content,detected=anytype_download(self.source,self.sid,fid)
+        declared=mime if normalized_mime(mime) not in GENERIC_MIMES else extra_mime
+        actual_mime=resolve_file_mime(original_name,declared,detected)
         if not has_file_extension(original_name):
             ext='.csv' if actual_mime=='text/csv' else mimetypes.guess_extension(actual_mime)
             if ext:original_name+=ext
             else:self.results[oid]['issues'].add('Extension du fichier source introuvable : '+original_name)
-        new = attach_file(self.target,self.dest_sid,self.mapping[oid],original_name,content,actual_mime)
-        uri = ImportedFile(f'any://f/{self.dest_sid}/{new}',original_name,actual_mime)
+        library=self.file_libraries.setdefault(self.dest_sid,FileLibrary(self.target,self.dest_sid))
+        new=library.find(original_name,content)
+        reused=new is not None
+        if new is None:
+            new=attach_file(self.target,self.dest_sid,self.mapping[oid],original_name,content,actual_mime)
+            library.register(original_name,content,new)
+        width,height=self.source_file_dimensions.get(fid,(None,None))
+        uri=ImportedFile(f'any://f/{self.dest_sid}/{new}',original_name,actual_mime,width,height)
         self.upload_cache[key]=uri
+        self.report.setdefault('file_transfers',[]).append({'source_id':fid,'target_id':new,
+            'name':original_name,'action':'reused' if reused else 'uploaded'})
         if actual_mime == 'text/csv':
             # Useful to diagnose a server-side regression without failing a
             # successful upload on older preview clients without this route.
@@ -956,7 +1116,7 @@ class Engine:
         if plan.get('mode') not in ('simple', None):
             raise APIError('Le mode synchronisation nécessite une gestion des mises à jour : il n’est pas activé dans cette version. Choisissez « Import simple ».')
         roots, reasons, selected_cols = select_scope(inv,plan)
-        entries, docs, read_errors = discover_documents(self.source,self.sid,inv,roots,reasons,bool(plan.get('follow_links')))
+        entries, docs, read_errors = discover_documents(self.source,self.sid,inv,roots,reasons,bool(plan.get('follow_links')) and plan['selection']['kind']!='space',self.source_views)
         if not docs and entries: raise APIError('Aucun document source lisible. Aucune écriture effectuée.')
         yield self.emit('message',message=f'Lecture de {len(docs)} objets source · {len(read_errors)} avertissement(s).')
         try: metadata = anytype_property_definitions(self.source,self.sid)
@@ -978,6 +1138,8 @@ class Engine:
                 defs=[]
                 yield self.emit('message', message=f'! Schéma du type « {typ["name"]} » inaccessible : {exc}')
             self.type_defs[key]=defs
+        archives=chat_histories(self.source,self.sid) if plan.get('archive_chats') else []
+        if archives:yield self.emit('message',message=f'{len(archives)} chat(s) à importer en archives.')
         target=plan['target']
         self.dest_sid = target['space_id'] if target['space_mode']=='existing' else create_space(self.target,target['space_name'])
         if target['space_mode']=='create':
@@ -986,7 +1148,7 @@ class Engine:
         for col in selected_cols:
             col_issues=set()
             try:
-                source_col=self.source.object_detail(self.sid,col['id'])
+                source_col=self.source_views.document(col['id'])
                 self.collection_documents[col['id']]=source_col
                 if source_col.get('filters') or source_col.get('sorts'):
                     col_issues.add('Filtres / tris hors définition de vue conservés dans le rapport')
@@ -1002,8 +1164,10 @@ class Engine:
         member_cols={oid:[] for oid in docs}
         for col in selected_cols:
             cid=self.col_cache.get('collection:'+col['id'])
-            for item in inv['members'].get(col['id'],[]):
-                if item['id'] in member_cols: member_cols[item['id']].append(cid)
+            source_ids=set(self.collection_documents.get(col['id'],{}).get('collection_items',[]))
+            source_ids.update(item['id'] for item in inv['members'].get(col['id'],[]))
+            for member_id in source_ids:
+                if member_id in member_cols:member_cols[member_id].append(cid)
         # First pass: all pages and their collection memberships (no relations yet).
         for oid, obj in entries.items():
             self.results[oid]={'name':obj['name'],'source_id':oid,'target_id':None,
@@ -1018,13 +1182,13 @@ class Engine:
             props = {} if is_bookmark(obj,docs[oid]) else custom_properties(docs[oid],metadata); typ = types_by_obj.get(oid)
             typkey=(typ or {}).get('key') or obj.get('type') or 'page'
             cols=list(member_cols.get(oid,[]))
-            # A Type's property columns belong to a dedicated Anytwo collection,
-            # even when the source object also belongs to one/many Anytype collections.
+            # Existing source collection memberships own the properties. A type
+            # collection is only a fallback for objects outside source collections.
             type_col=None
-            if not is_bookmark(obj,docs[oid]) and (props or self.type_defs.get(typkey)):
+            if not cols and not is_bookmark(obj,docs[oid]) and (props or self.type_defs.get(typkey)):
                 type_col=self.type_column(typkey,(typ or {}).get('name') or typkey,force=True)
                 if type_col not in cols: cols.append(type_col)
-            elif not is_bookmark(obj,docs[oid]) and plan['selection']['kind'] in ('types','objects'):
+            elif not cols and not is_bookmark(obj,docs[oid]) and plan['selection']['kind'] in ('types','objects'):
                 type_col=self.type_column(typkey,(typ or {}).get('name') or typkey)
                 if type_col and type_col not in cols: cols.append(type_col)
             self.property_owner[oid]=type_col or (cols[0] if cols else None)
@@ -1043,6 +1207,7 @@ class Engine:
                     self.results[oid]['issues'].update(icon_warnings)
                 else:
                     self.mapping[oid]=create_object(self.target,self.dest_sid,obj['name'],cols)
+                self.memberships[oid]=set(cols)
                 self.results[oid]['target_id']=self.mapping[oid]
                 self.results[oid]['status']='created'
                 if isinstance(icon,dict) and icon.get('format')=='image':
@@ -1061,10 +1226,12 @@ class Engine:
                 yield self.emit('message',message=f'! Création impossible « {obj["name"]} » : {exc}')
         # Define all source type columns, including empty ones, before writing values.
         for typkey,defs in self.type_defs.items():
+            defined_owners=set()
             for oid,obj in entries.items():
                 if (obj.get('type') or 'page') != typkey or oid not in self.mapping or is_bookmark(obj,docs.get(oid)): continue
                 cid=self.property_owner.get(oid)
-                if not cid or not defs: continue
+                if not cid or not defs or cid in defined_owners: continue
+                defined_owners.add(cid)
                 issues=self.results[oid]['issues']
                 for spec in defs:
                     try:
@@ -1077,9 +1244,7 @@ class Engine:
                                 if not any(b[0]==binding[0] for b in bucket):bucket.append(binding)
                     except (APIError,ValueError,TypeError,KeyError) as exc:
                         self.results[oid]['errors'].append('Définition de propriété « '+spec['name']+' » : '+str(exc))
-                # Columns belong to the collection, not an individual object.
-                # Later objects will reuse the column cache.
-                break
+                # Define empty fields once for each actual property owner.
         # Second pass: properties, links, files and content. Content failures must not be hidden.
         for oid,doc in docs.items():
             r = self.results[oid]
@@ -1158,6 +1323,9 @@ class Engine:
                             bucket=self.property_bindings.setdefault(str(alias).casefold(),[])
                             if not any(b[0]==binding[0] for b in bucket): bucket.append(binding)
                     set_column_value(self.target,self.dest_sid,r['target_id'],primary,pid,converted)
+                    self.written_properties.setdefault(oid,{})[primary+'.'+pid]={
+                        'kind':kind,'format':fmt,'label':label,'spec':{**meta,'format':fmt},
+                        'form':deepcopy(actual_form),'value':deepcopy(converted)}
                 except (APIError,KeyError,ValueError,TypeError) as exc:
                     r['errors'].append(f'Propriété « {name} » : {exc}')
         # Third pass: views and page bodies use the complete property/id mapping.
@@ -1166,7 +1334,15 @@ class Engine:
         for source_id,source_doc in self.collection_documents.items():
             cid=self.col_cache.get('collection:'+source_id)
             issues=set()
-            self.convert_views(source_doc,cid,converter,issues,source_id)
+            scoped=converter
+            for block in source_doc.get('blocks',[]):
+                if block.get('type')!='dataview':continue
+                try:
+                    _,scoped=self.inline_scope(source_id,block,
+                        source_doc.get('collection_items',[o['id'] for o in inv['members'].get(source_id,[])]),converter,issues)
+                except (UnsupportedView,APIError,ValueError,TypeError,KeyError) as exc:
+                    issues.add('Propriétés de collection non reproduites : '+str(exc))
+            self.convert_views(source_doc,cid,scoped,issues,source_id)
             report=next((r for r in self.collection_reports if r['name']==next((c['name'] for c in selected_cols if c['id']==source_id),None)),None)
             if report is not None: report['issues']=sorted(set(report['issues'])|issues)
         for oid,doc in docs.items():
@@ -1181,7 +1357,7 @@ class Engine:
                 if plan.get('files'):
                     try:
                         uri=self.add_file(oid,str(cover['file']),'couverture-'+r['name']+'.png','image/png')
-                        cover_line=f'![Couverture de {r["name"]}]({uri})'
+                        cover_line=image_markdown(uri,'Couverture de '+r['name'])
                         issues.add('Couverture ajoutée dans la page (présentation d’origine non reproduite)')
                     except APIError as e:
                         issues.add('Couverture image non importée : '+str(e))
@@ -1219,7 +1395,7 @@ class Engine:
                 if plan.get('files'):
                     try:
                         uri=self.add_file(oid,oid,r['name'],None)
-                        markdown += '\n\n'+(f'![{getattr(uri,"name",r["name"])}]({uri})' if source_type=='image' else file_html(uri,getattr(uri,'name',r['name'])))
+                        markdown += '\n\n'+(image_markdown(uri,getattr(uri,'name',r['name'])) if source_type=='image' else file_html(uri,getattr(uri,'name',r['name'])))
                     except APIError as e:
                         issues.add('Fichier source non importé : '+str(e))
                         markdown+='\n\n> **Attention : fichier source non importé.**'
@@ -1275,4 +1451,23 @@ class Engine:
             if r['target_id'] and oid in docs: continue
             yield self.emit('object',name=r['name'],source_id=oid,target_id=r['target_id'],
                             status='error',reason=r['reason'],issues=sorted(r['issues']),errors=r['errors'])
+        # Chats remain excluded from normal page/type discovery. Only this
+        # explicit option creates archive pages; never call target chat APIs.
+        for history in archives:
+            oid=history['id'];name='Archive du chat · '+history['name']
+            r={'name':name,'source_id':oid,'target_id':None,'reason':['Option archive des chats de l’espace source'],
+               'issues':set(history['warnings']),'errors':[],'status':'error'}
+            self.results[oid]=r
+            self.report.setdefault('chat_archives',[]).append(history)
+            try:
+                self.mapping[oid]=create_object(self.target,self.dest_sid,name,[])
+                r['target_id']=self.mapping[oid]
+                content=chat_markdown(history,bool(plan.get('files')),
+                    lambda fid,label,mime:self.add_file(oid,fid,label,mime),r['issues'],
+                    lambda text:replace_inline_links(text,self.mapping,self.dest_sid,self.names,r['issues']),
+                    lambda ref:titled_link(self.names.get(ref,'Objet lié'),reference_link(ref,self.mapping,self.dest_sid,self.names)) if ref in self.mapping else None)
+                set_markdown(self.target,self.dest_sid,r['target_id'],content)
+                r['status']='partial' if r['issues'] else 'imported'
+            except (APIError,ValueError,TypeError,KeyError) as exc:r['errors'].append(str(exc))
+            yield self.emit('object',**{**r,'issues':sorted(r['issues'])})
         yield self.emit('summary',**self.finish_report())

@@ -7,7 +7,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 
-from api_clients import APIError, target_write, _segment
+from api_clients import APIError, target_write, local_get, _segment
 
 
 class UnsupportedView(ValueError):
@@ -26,7 +26,7 @@ def choice_options(options, key_factory):
             raise ValueError('Options homonymes : identité ambiguë pour ' + name)
         result[key] = {'name': name, 'pos': f'a{index:06d}'}
         if item.get('color'):
-            result[key]['color'] = item['color']
+            result[key]['color'] = {'lime':'green','gray':'grey'}.get(item['color'],item['color'])
     return result
 
 
@@ -188,11 +188,13 @@ class ViewConverter:
         query = {'type': 'plain', 'filter': combine('$and', predicates)}
         sorts = []
         for item in view.get('sorts', []):
-            if item.get('direction', 'asc') not in ('asc', 'desc') or any(item.get(k) for k in ('custom_order', 'empty_placement', 'include_time', 'no_collate')):
+            if item.get('direction', 'asc') not in ('asc', 'desc') or any(item.get(k) for k in ('custom_order', 'empty_placement', 'no_collate')):
                 raise UnsupportedView('Tri personnalisé ou placement des valeurs vides non transposable')
             fields = self.fields(item.get('property'))
             if len(fields) != 1:
                 raise UnsupportedView('Tri sur une propriété répartie entre plusieurs collections')
+            if item.get('include_time') and fields[0][2].get('type')!='datetime':
+                raise UnsupportedView('Tri avec heure sans propriété datetime cible')
             sorts.append(('-' if item.get('direction') == 'desc' else '') + fields[0][0])
         if sorts:
             query['sort'] = sorts + ['id']
@@ -207,6 +209,36 @@ class ViewConverter:
         return layout, query, settings
 
 
+def collection_presentation(converter, view, scope, query, settings, issues):
+    """Shared collection-view settings used by the native listing client."""
+    from inline_views import ui_clause, ui_field
+    visible=[];order=[];hidden=[]
+    for column in view.get('columns',[]):
+        name=column.get('property')
+        try:
+            field='name' if name=='name' else ui_field(converter,name)[0]
+        except UnsupportedView:
+            if not column.get('hidden'):issues.add('Colonne affichée non transposable : '+str(name))
+            continue
+        if field not in order:order.append(field)
+        (hidden if column.get('hidden') else visible).append(field)
+    if view.get('columns'):
+        # The client computes hidden columns as the complement of visible.
+        # Include system fields in the order so newly imported timestamps do
+        # not appear alongside the explicitly preserved source dates.
+        all_fields=['name','type','collections','createdAt','author','modifiedAt','modifiedBy']
+        all_fields.extend(path.split('.',1)[1] for bucket in converter.bindings.values()
+                          for path,_,_ in bucket if path.startswith(scope+'.'))
+        order=list(dict.fromkeys(order+all_fields))
+        settings.update(visible=list(dict.fromkeys(visible)),order=order,
+                        hidden=[field for field in order if field not in visible])
+    query['anyUi']={'version':1,
+        'filters':[ui_clause(converter,n,'filter-'+str(i)) for i,n in enumerate(view.get('filters',[]))],
+        'sort':[{'propertyId':ui_field(converter,n['property'])[0],'dir':n.get('direction','asc')}
+                for n in view.get('sorts',[])]}
+    return query,settings
+
+
 def create_saved_views(api, sid, host_id, block, source_host, members, converter, issues, root_id=None, table_key='table-0'):
     source_filter = converter.query(block, source_host, members)
     if block.get('is_collection') or source_host.get('type_internal_key')=='collection':
@@ -214,16 +246,29 @@ def create_saved_views(api, sid, host_id, block, source_host, members, converter
         if omitted:issues.add(f'Vue limitée au périmètre importé : {len(omitted)} membre(s) source non importé(s)')
     converted = []
     failed = []
-    for index, view in enumerate(block.get('views') or [{}]):
+    source_views=list(block.get('views') or [{}])
+    active=block.get('active_view') or block.get('active_view_id')
+    if active:source_views.sort(key=lambda v:v.get('id')!=active)
+    active_failed=None
+    for index, view in enumerate(source_views):
         try:
             layout, query, settings = converter.convert(view, source_filter)
-            converted.append({'id': f'{table_key}-view-{index}', 'name': view.get('name') or 'Vue Anytype',
+            if table_key=='default':query,settings=collection_presentation(converter,view,host_id,query,settings,issues)
+            view_key=('default' if index==0 else 'default.view-'+str(index)) if table_key=='default' else f'{table_key}-view-{index}'
+            converted.append({'id': view_key, 'name': view.get('name') or 'Vue Anytype',
                               'pos': f'a{index:06d}', 'dataview': table_key,
                               'layout': layout, 'query': query, 'layoutSettings': settings})
         except (UnsupportedView, TypeError, ValueError) as exc:
             failed.append(str(exc))
+            if index==0:active_failed=str(exc)
+    if table_key=='default' and active_failed:
+        raise UnsupportedView('Vue active non convertible : '+active_failed)
     if not converted:
         raise UnsupportedView('; '.join(failed))
+    if root_id is None and table_key=='default':
+        found=local_get(api.port,f'/v1/spaces/{_segment(sid)}/objects/query',method='POST',
+            body={'filter':{'$and':[{'any.type':'dataview'},{'dataview.host':host_id}]},'sort':['id'],'limit':1})
+        if found.get('records'):root_id=found['records'][0]['id']
     if root_id is None:
         root = target_write(api, f'/spaces/{_segment(sid)}/objects', {
             'type': 'dataview', 'initialProperties': {'any': {'name': 'Vues Anytype'}, 'dataview': {'host': host_id}}})
@@ -232,8 +277,10 @@ def create_saved_views(api, sid, host_id, block, source_host, members, converter
         raise APIError('Objet de vues créé sans identifiant')
     modify_records(api, sid, root_id, 'dataviews', [{'id': table_key, 'name': block.get('name') or 'Anytype', 'pos': 'a'+table_key}])
     modify_records(api, sid, root_id, 'views', converted)
-    issues.add('Vues enregistrées rattachées à la page ; emplacement et rendu intégrés à vérifier dans Anytwo')
-    if any(v.get('columns') or any(k in v for k in ('card_size', 'hide_icon', 'groups', 'object_orders', 'wrap_content', 'alternate_rows', 'cover_property', 'end_property', 'default_type_id', 'default_template_id')) for v in block.get('views', [])):
+    if table_key!='default':issues.add('Vues enregistrées rattachées à la page ; emplacement et rendu intégrés à vérifier dans Anytwo')
+    elif any(c.get('width') for v in source_views for c in v.get('columns',[])):
+        issues.add('Largeurs de colonnes archivées : réglage local du client Anytwo')
+    if any(any(k in v for k in ('card_size', 'hide_icon', 'groups', 'object_orders', 'wrap_content', 'alternate_rows', 'cover_property', 'end_property', 'default_type_id', 'default_template_id')) for v in block.get('views', [])):
         issues.add('Réglages visuels et ordre manuel des vues archivés, non appliqués au client Anytwo')
     for message in failed:
         issues.add('Vue non convertie : ' + message)

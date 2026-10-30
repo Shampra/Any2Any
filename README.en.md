@@ -52,3 +52,5 @@ This is an independent community project and **is not officially affiliated with
 
 For implementation details and the current release history, see the [French technical notes](docs/NOTES-TECHNIQUES.fr.md).
 
+
+Chat archives are optional and disabled by default: one page per chat in the source space, with authors, dates, replies, reactions and optional attachments. Chats remain excluded from ordinary page and type imports.

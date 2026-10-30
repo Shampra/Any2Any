@@ -29,13 +29,13 @@ class OfflinePreviewTests(unittest.TestCase):
         self.assertIn('.status-chip.api-failed', self.styles)
 
     def test_offline_warning_translated_and_version_consistent(self):
-        self.assertIn('Bêta 0.9.2', self.page)
+        self.assertIn('Bêta 0.9.3', self.page)
         self.assertIn('APIs unavailable: preview only.', self.language)
         self.assertIn('APIs nicht verfügbar: nur Vorschau.', self.language)
         for path in ('README.md', 'README.en.md'):
             text = (ROOT / path).read_text(encoding='utf-8')
             self.assertNotRegex(text.splitlines()[0], r'v\d+\.\d+')
-        self.assertIn("server_version = 'Any2AnyUI/0.9.2'", (ROOT / 'server.py').read_text(encoding='utf-8'))
+        self.assertIn("server_version = 'Any2AnyUI/0.9.3'", (ROOT / 'server.py').read_text(encoding='utf-8'))
         self.assertNotIn('Anytype-Anytwo-Importer/0.8', (ROOT / 'api_clients.py').read_text(encoding='utf-8'))
 
 

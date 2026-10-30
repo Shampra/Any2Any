@@ -328,6 +328,9 @@ function mappedTypes(){
 }
 function renderTarget({skipCollectionRefresh=false}={}){
   const selected=!!S.selection.kind;
+  const wholeSpace=S.selection.kind==='space';
+  $('links-option').disabled=wholeSpace;
+  hidden($('links-option').closest('label'),wholeSpace);
   hidden('empty-target',selected);hidden('configured-target',!selected);
   const requiredForObjects=S.selection.kind==='objects' && mappedTypes().length>0;
   hidden('collection-settings',!selected||!['collection','objects'].includes(S.selection.kind)||requiredForObjects);
@@ -443,7 +446,7 @@ function plan(){
   }
   return {mode:S.mode,source_space:src,selection:{kind:S.selection.kind,collection_id:S.selection.collectionId,
     type_keys:S.selection.typeKeys,ids:S.selection.ids},target,
-    files:$('files-option').checked,follow_links:$('links-option').checked};
+    files:$('files-option').checked,follow_links:S.selection.kind!=='space'&&$('links-option').checked,archive_chats:$('chats-option').checked};
 }
 
 function updateImportButton(){

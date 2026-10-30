@@ -80,7 +80,7 @@ class RegressionV06(unittest.TestCase):
         self.assertIn('Suite',result)
         self.assertIn('<table><tbody>',result)
         self.assertIn('<strong>Produit</strong>',result)
-        self.assertIn('width="200"',result)
+        self.assertIn('any:image-width=200',result)
         self.assertIn('https://www.youtube.com/watch?v=AbCdEfGhI01',result)
         self.assertIn('Couleur des cellules du tableau non reproduite',issues)
         self.assertEqual(youtube_embed('https://evil.com/a'),None)
@@ -104,8 +104,11 @@ class RegressionV06(unittest.TestCase):
         result=render_blocks({'blocks':[{'type':'image','object_id':'f',
           'name':'Miniature','fields':{'width':0.45}}]}, {},'sid',{},True,
           lambda *_:'any://f/sid/new',issues)
-        self.assertIn('width:45%',result)
+        self.assertIn('![Miniature](any://f/sid/new)',result)
+        self.assertNotIn('<img',result)
+        self.assertTrue(any('Largeur relative' in issue for issue in issues))
         self.assertNotIn('width="45"',result)
+        self.assertIn('any:image-width=324',result)
 
     def test_native_emoji_attempt_and_safe_fallback(self):
         responses=[APIError('champ icon non pris en charge',400),{'objectId':'obj2'}]

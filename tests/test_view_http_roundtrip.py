@@ -27,7 +27,16 @@ class ViewsAPI(APIStub):
         super().do_GET()
 
     def do_POST(self):
-        if urlsplit(self.path).path=='/v1/spaces/dest/modify':
+        path=urlsplit(self.path).path
+        if path=='/v1/spaces/dest/objects/query':
+            raw=self.rfile.read(int(self.headers.get('Content-Length','0')))
+            self.calls.append((self.server.label,'POST',path,raw))
+            return self.answer(200,{'records':[]})
+        if '/properties/' in path and '/collections/' in path:
+            raw=self.rfile.read(int(self.headers.get('Content-Length','0')))
+            self.calls.append((self.server.label,'POST',path,raw))
+            return self.answer(200,{'recordIds':[]})
+        if path=='/v1/spaces/dest/modify':
             raw=self.rfile.read(int(self.headers.get('Content-Length','0')))
             self.calls.append((self.server.label,'POST',urlsplit(self.path).path,raw))
             body=json.loads(raw)
@@ -65,13 +74,18 @@ class ViewHTTPTests(unittest.TestCase):
             self.assertTrue(all(i>property_index for i in view_indices))
             view_bodies=[json.loads(calls[i][3]) for i in view_indices if json.loads(calls[i][3])['dataset']=='views']
             self.assertEqual(len(view_bodies),2)
-            for body in view_bodies:
-                fields={op['path']:op['value'] for op in body['records'][0]['ops']}
-                self.assertEqual(fields['query']['filter']['$and'][0],{'id':{'$in':['new1']}})
-                self.assertIn('coll2.p1',json.dumps(fields['query']))
+            saved={op['path']:op['value'] for op in view_bodies[0]['records'][0]['ops']}
+            self.assertEqual(saved['query']['filter']['$and'][0],{'id':{'$in':['new1']}})
+            self.assertEqual(view_bodies[0]['records'][0]['id'],'default')
+            self.assertEqual(saved['dataview'],'default')
+            self.assertEqual(saved['query']['anyUi']['sort'][0]['dir'],'desc')
+            inline={op['path']:op['value'] for op in view_bodies[1]['records'][0]['ops']}
+            self.assertEqual(inline['query']['anyUi']['source']['kind'],'collection')
+            self.assertEqual(inline['query']['anyUi']['filters'][0]['condition'],{'kind':'number','operator':'gt','value':'3'})
+            self.assertTrue(view_bodies[1]['records'][0]['id'].endswith('.list'))
             content=json.loads(next(c[3] for c in calls if c[1]=='PUT'))['content']
-            self.assertLess(content.index('BEFORE'),content.index('Vue :'))
-            self.assertLess(content.index('Vue :'),content.index('AFTER'))
+            self.assertLess(content.index('BEFORE'),content.index('<!-- any:block '))
+            self.assertLess(content.index('<!-- any:block '),content.index('AFTER'))
             self.assertFalse(result['objects'][0]['errors'])
         finally:
             for server in servers:server.shutdown();server.server_close()
@@ -112,7 +126,8 @@ class PropertyHTTPTests(ViewHTTPTests):
         self.assertTrue(json.loads(status['xFormat']['any2any']['sourceSettings'])['readonly'])
         related=next(p for p in properties if p['name']=='Related')
         self.assertFalse(related['xFormat']['config']['multiple'])
-        self.assertEqual(related['xFormat']['relation']['targetTypes'],['coll2'])
+        self.assertNotIn('relation',related['xFormat'])
+        self.assertEqual(json.loads(related['xFormat']['any2any']['sourceSettings'])['object_types'],['type-book'])
         values=[json.loads(c[3]) for c in APIStub.calls if '/set/' in c[2]]
         self.assertTrue(any(v==['any://new1'] for row in values for v in row['patch'].values()))
 

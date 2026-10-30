@@ -1,5 +1,43 @@
 # Changes / Modifications
 
+## 0.9.3 — 2026-10-30 — Collections, inline views and chat archives
+
+### English
+
+Experimental release focused on source fidelity and native Anytwo collections/views.
+
+- Import inline queries and collections as native inline views, preserving supported filters and sorts. Include matching documents recursively when linked-object inclusion is enabled, with the same scope in the preview.
+- Configure the actual default collection view: visible/hidden properties, column order and sorting by the original Anytype creation date.
+- Store members’ properties directly in their collection supertags. Use type supertags as a fallback outside imported collections; avoid redundant Page memberships and artificial suffixed properties. Preserve nested collection navigation pages and parent memberships.
+- Retrieve select options and colors through the Anytype v2 API, including unused options; translate the source `lime` color to Anytwo’s native `green`.
+- Render images with native Markdown. Clean technical filename prefixes, preserve original names/extensions and reuse library files only after matching normalized name, size and SHA-256 content. Share transferred assets across pages within the same destination space.
+- Preserve intentional empty paragraphs and pixel image widths. Approximate relative image widths against a 720 px block reference, with an explicit report warning.
+- Add an optional, disabled-by-default chat archive import: one page per chat in the source space, grouped by day, with authors, timestamps, edits, replies, reactions and optional attachments. Chats remain excluded from ordinary object/type import; no messages are posted to Anytwo chats.
+- Check chat-history pagination and completeness before destination writes. Include archives in the preview and JSON report.
+- Hide linked-object inclusion for whole-space imports and exclude destination spaces explicitly marked deleted, removed or left.
+- Reuse native view hosts and collection sources. Refuse unsupported filters, ambiguous properties and unconvertible active views instead of silently broadening results.
+- Validation: **137 automated tests pass**, including regression and simulated HTTP integration coverage; targeted source/API and installed-client checks were also performed.
+
+**Limits:** this remains an experimental preview. Simple imports create new copies; synchronization and automatic rollback are unavailable. Inline tables may be adapted to lists, collection column widths remain local client settings, and unsupported presentation settings are archived with warnings. These changes improve future imports; existing imports are not repaired automatically.
+
+### Français
+
+Version expérimentale axée sur la fidélité à la source et les collections/vues natives d’Anytwo.
+
+- Import des queries et collections intégrées comme vues en ligne natives, avec conservation des filtres et tris compatibles. Inclusion récursive des documents correspondants si le suivi des éléments liés est activé, avec le même périmètre dans la simulation.
+- Configuration de la véritable vue par défaut des collections : propriétés visibles/masquées, ordre des colonnes et tri par date de création Anytype d’origine.
+- Propriétés des membres portées directement par les supertags de leurs collections. Supertags de type en repli hors collection importée ; suppression des appartenances Page redondantes et des propriétés suffixées artificielles. Conservation des pages de navigation des collections imbriquées et de leurs appartenances parentes.
+- Lecture des options et couleurs de select via l’API Anytype v2, y compris les options inutilisées ; conversion du vert source `lime` vers le vert natif Anytwo `green`.
+- Images en Markdown natif. Nettoyage des préfixes techniques, conservation des noms/extensions d’origine et réutilisation des fichiers de bibliothèque après correspondance du nom normalisé, de la taille et du SHA-256. Fichiers transférés partagés entre pages d’un même espace cible.
+- Conservation des paragraphes vides et des largeurs d’images en pixels. Approximation des largeurs relatives sur un bloc de référence de 720 px, signalée dans le rapport.
+- Option d’archivage des chats désactivée par défaut : une page par chat de l’espace source, regroupement par jour, auteurs, dates, modifications, réponses, réactions et pièces jointes facultatives. Chats exclus de l’import ordinaire des objets/types ; aucun message publié dans les chats Anytwo.
+- Contrôle de la pagination et de l’exhaustivité des historiques avant toute écriture cible. Archives incluses dans la simulation et le rapport JSON.
+- Option des éléments liés masquée pour un espace entier et exclusion des espaces cibles explicitement supprimés, retirés ou quittés.
+- Réutilisation des hôtes de vues et collections sources natifs. Refus des filtres non pris en charge, propriétés ambiguës et vues actives non convertibles, sans élargissement silencieux des résultats.
+- Validation : **137 tests automatisés réussis**, dont des régressions et intégrations HTTP simulées ; vérifications ciblées des données/API sources et du client installé également effectuées.
+
+**Limites :** cette version reste expérimentale. L’import simple crée de nouvelles copies ; synchronisation et annulation automatique indisponibles. Les tables intégrées peuvent être adaptées en listes, les largeurs de colonnes restent locales au client et les réglages de présentation non transposables sont archivés avec avertissement. Ces changements améliorent les prochains imports ; les copies existantes ne sont pas réparées automatiquement.
+
 ## 0.9.2 — 2026-10-29 — Import fidelity improvements
 
 ### English

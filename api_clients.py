@@ -28,7 +28,7 @@ def local_get(port: int, path: str, *, method='GET', body: dict | None = None,
     url = f'http://127.0.0.1:{int(port)}{path}'
     data = json.dumps(body).encode('utf-8') if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
-                                 headers={'Accept': 'application/json', 'User-Agent': 'Any2Any/0.9.2',
+                                 headers={'Accept': 'application/json', 'User-Agent': 'Any2Any/0.9.3',
                                           **({'Content-Type': 'application/json'} if body is not None else {}),
                                           **(headers or {})})
     try:
@@ -231,7 +231,9 @@ class Anytwo:
         data = local_get(self.port, '/v1/spaces', timeout=3)
         rows = unwrap_list(data, 'spaces')
         return sort_named([{'id': item_id(x), 'name': item_name(x)} for x in rows
-                           if item_id(x) and not item_name(x).strip().startswith('_')
+                           if item_id(x) and str(x.get('status') or 'active').lower() not in ('deleted','deleting','removed','left','archived')
+                           and not any(x.get(k) is True for k in ('deleted','isDeleted','is_deleted','isRemoved','is_removed'))
+                           and not item_name(x).strip().startswith('_')
                            and item_name(x).strip().casefold() != 'bao'])
 
     def collections(self, space_id):
@@ -335,7 +337,7 @@ def discover_anytwo_port(preferred: int | None = None) -> int | None:
 def local_binary(port, path, *, method='GET', data=None, content_type=None,
                  headers=None, max_bytes=100 * 1024 * 1024, timeout=45):
     """Bounded binary transfer, loopback only, and no environment proxies."""
-    req_headers = {'User-Agent': 'Any2Any/0.9.2', **(headers or {})}
+    req_headers = {'User-Agent': 'Any2Any/0.9.3', **(headers or {})}
     if content_type:
         req_headers['Content-Type'] = content_type
     req = urllib.request.Request(f'http://127.0.0.1:{int(port)}{path}',
@@ -363,10 +365,10 @@ def anytype_property_definitions(api: Anytype, space_id: str) -> dict:
     mapping = {}
     for prop in rows:
         if prop.get('format') in ('select','multi_select') and not prop.get('options'):
-            identifier=prop.get('id') or prop.get('key')
+            identifier=prop.get('key') or prop.get('id')
             if identifier:
                 try:
-                    prop['options']=paginated(api.port, f'/v1/spaces/{sid}/properties/{_segment(identifier)}/tags', api.key)
+                    prop['options']=paginated(api.port, f'/v2/spaces/{sid}/properties/{_segment(identifier)}/options', api.key)
                 except APIError:
                     prop['_options_unavailable']=True
         for name in (prop.get('key'), prop.get('name'), prop.get('id'), prop.get('internal_key')):
@@ -431,7 +433,7 @@ def create_object(api: Anytwo, sid, name, collections, emoji=None, icon_warnings
 
 
 def add_membership(api: Anytwo, sid, oid, cid):
-    target_write(api, f'/spaces/{_segment(sid)}/properties/{_segment(oid)}/collections/{_segment(cid)}', {})
+    target_write(api, f'/spaces/{_segment(sid)}/properties/{_segment(oid)}/collections/{_segment(cid)}', None)
 
 
 def list_columns(api: Anytwo, sid, cid):

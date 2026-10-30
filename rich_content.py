@@ -12,8 +12,8 @@ from urllib.parse import urlparse, parse_qs
 
 
 class ImportedFile(str):
-    def __new__(cls, uri, name, mime=''):
-        obj=super().__new__(cls,uri);obj.name=name;obj.mime=mime
+    def __new__(cls, uri, name, mime='', width=None, height=None):
+        obj=super().__new__(cls,uri);obj.name=name;obj.mime=mime;obj.width=width;obj.height=height
         return obj
 
 
@@ -146,3 +146,24 @@ def remove_unsupported_inline(text):
     parts=re.split(r'(`+[^`]*`+)',text)
     return ''.join(part if index%2 else re.sub(r'</?(?:u|sub|sup)>','',part)
                    for index,part in enumerate(parts))
+
+
+def image_markdown(uri,name,width=None):
+    # Same escaping and width annotation as the desktop ImageNode exporter.
+    return '!'+file_html(uri,name)+(f'<!-- any:image-width={int(width)} -->' if width else '')
+
+
+def image_width(block, imported, issues):
+    fields=block.get('fields') if isinstance(block.get('fields'),dict) else {}
+    style=block.get('style') if isinstance(block.get('style'),dict) else {}
+    raw=block.get('width',fields.get('width',style.get('width')))
+    try:
+        value=float(raw)
+        if 0<value<=1:
+            # Anytwo persists pixels only. Use a stable page-width reference,
+            # not intrinsic file dimensions (which describe a different scale).
+            issues.add('Largeur relative d’image approximée sur une largeur de bloc de référence de 720 px')
+            return max(96,round(720*value))
+        if 1<value<=2400:return max(96,round(value))
+    except (ValueError,TypeError,OverflowError):pass
+    return None
