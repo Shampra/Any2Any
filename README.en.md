@@ -2,7 +2,7 @@
 
 **[Français](README.md) · [English](README.en.md)**
 
-**Any2Any** is a community-developed migration tool for transferring data from **Anytype** to **Anytwo** through both applications’ local APIs.
+**Any2Any** is a migration tool for transferring data from **Anytype** to **Anytwo** through both applications’ local APIs.
 
 It provides a **local web interface** to browse Anytype spaces, select an entire space, a collection, multiple types, or individual objects, and choose where to import them in Anytwo.
 
