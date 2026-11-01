@@ -96,6 +96,9 @@ class FidelityTests(unittest.TestCase):
             root,failed=create_saved_views(None,'dest','page',{'is_collection':True,'views':[{'filters':[{'property':'Score','condition':'greater','value':0}]}]}, {'collection_items':['a']},[],self.converter,issues)
         self.assertEqual(root,'view-root'); self.assertFalse(failed)
         self.assertEqual(calls[0][1]['initialProperties']['dataview']['host'],'page')
+        # A technical dataview host has no name in the native client. Naming it
+        # makes it appear as an unrelated document in the content browser.
+        self.assertNotIn('any',calls[0][1]['initialProperties'])
         fields={op['path']:op['value'] for op in calls[2][1]['records'][0]['ops']}
         self.assertEqual(fields['query']['filter']['$and'][0],{'id':{'$in':['new-a']}})
         self.assertTrue(any('rendu' in x for x in issues))

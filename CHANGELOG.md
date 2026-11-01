@@ -1,5 +1,22 @@
 # Changes / Modifications
 
+## 0.10.0 — 2026-11-01 — English — unified Anytype / Notion application
+
+- Choose Anytype or Notion at startup; shared Anytwo backend and one main launcher.
+- Notion imports: tree selection, files, native formatting, views, grouping, two-way relations and compatible rollups.
+- Preserve gallery Fit image and use side peek unless full-page opening is explicitly requested.
+- Fewer Notion reads, shared cache, interrupted-read reuse and detailed progress.
+- Clean source archive without credentials, private reports or development diagnostics.
+
+## 0.10.0 — 2026-11-01 — Français — application commune Anytype / Notion
+
+- Choix de la source au démarrage, moteur Anytwo commun et lanceur principal unique.
+- Import Notion : sélection arborescente, fichiers, formats natifs, vues, regroupements, relations bidirectionnelles et rollups compatibles.
+- Conservation de Fit image et ouverture en side peek sauf indication explicite de pleine page.
+- Réduction des lectures, cache partagé, réutilisation après interruption et progression détaillée.
+- Archive source sans secrets, rapports privés ni diagnostics de développement.
+
+
 ## 0.9.3 — 2026-10-30 — Collections, inline views and chat archives
 
 ### English

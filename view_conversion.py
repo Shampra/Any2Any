@@ -7,7 +7,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 
-from api_clients import APIError, target_write, local_get, _segment
+from anytwo_backend import APIError, target_write, local_get, _segment
 
 
 class UnsupportedView(ValueError):
@@ -206,6 +206,9 @@ class ViewConverter:
         # Column vocabulary is client-owned. Preserve source exactly in a vendor
         # bag, never pretend it controls the client's actual widths or visibility.
         settings = {'any2any': {'sourceView': json.dumps(view, ensure_ascii=False)}}
+        presentation=view.get('presentation') or {}
+        if presentation.get('openMode') in ('side-peek','full-screen'):settings['openMode']=presentation['openMode']
+        if isinstance(presentation.get('galleryFitImage'),bool):settings['galleryFitImage']=presentation['galleryFitImage']
         return layout, query, settings
 
 
@@ -236,6 +239,17 @@ def collection_presentation(converter, view, scope, query, settings, issues):
         'filters':[ui_clause(converter,n,'filter-'+str(i)) for i,n in enumerate(view.get('filters',[]))],
         'sort':[{'propertyId':ui_field(converter,n['property'])[0],'dir':n.get('direction','asc')}
                 for n in view.get('sorts',[])]}
+    group=view.get('group_settings')
+    if group:
+        field,spec,form=ui_field(converter,group['property'])
+        if spec.get('format') not in ('select','multi_select','checkbox','date'):
+            raise UnsupportedView('Format de regroupement non pris en charge par le client : '+str(spec.get('format')))
+        native={'propertyId':field,'sort':group.get('sort','manual'),'hideEmpty':group.get('hideEmpty',False),
+                'collapsedIds':[],'hiddenIds':[],'dateBy':group.get('dateBy','relative')}
+        if view.get('type')=='kanban':settings['boardColumns']=native
+        else:
+            query['groupBy']={'propId':field}
+            query['anyUi']['group']=native
     return query,settings
 
 
@@ -257,7 +271,7 @@ def create_saved_views(api, sid, host_id, block, source_host, members, converter
             view_key=('default' if index==0 else 'default.view-'+str(index)) if table_key=='default' else f'{table_key}-view-{index}'
             converted.append({'id': view_key, 'name': view.get('name') or 'Vue Anytype',
                               'pos': f'a{index:06d}', 'dataview': table_key,
-                              'layout': layout, 'query': query, 'layoutSettings': settings})
+                              'layout': layout, 'query': query, 'layoutSettings': settings, **({'icon':view['icon']} if view.get('icon') else {})})
         except (UnsupportedView, TypeError, ValueError) as exc:
             failed.append(str(exc))
             if index==0:active_failed=str(exc)
@@ -271,7 +285,7 @@ def create_saved_views(api, sid, host_id, block, source_host, members, converter
         if found.get('records'):root_id=found['records'][0]['id']
     if root_id is None:
         root = target_write(api, f'/spaces/{_segment(sid)}/objects', {
-            'type': 'dataview', 'initialProperties': {'any': {'name': 'Vues Anytype'}, 'dataview': {'host': host_id}}})
+            'type': 'dataview', 'initialProperties': {'dataview': {'host': host_id}}})
         root_id = root.get('objectId')
     if not root_id:
         raise APIError('Objet de vues créé sans identifiant')

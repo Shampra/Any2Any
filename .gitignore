@@ -19,3 +19,7 @@ bilan-import-*.json
 config.local.json
 secrets.json
 *.api-key
+
+# Archives de distribution et travail local non publié
+dist/
+.local/

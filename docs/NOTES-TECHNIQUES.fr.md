@@ -1,5 +1,7 @@
 # Any2Any — Migrateur Anytype → Anytwo (v0.9.3)
 
+La version commune se lance avec demarrer.bat et propose Anytype ou Notion avant les vérifications d’accès. Ce document détaille principalement la source Anytype ; le parcours Notion est décrit dans [NOTION-IMPORT.fr.md](NOTION-IMPORT.fr.md).
+
 **Version du projet : 0.9.3.** Les sections de changements ci-dessous retracent les versions précédentes. Les améliorations actuelles sont détaillées dans [le journal bilingue](../CHANGELOG.md) et [la fidélité des imports](IMPORT-FIDELITE.fr.md).
 
 Application Python + interface web locale permettant d'importer des espaces, collections, types et objets Anytype dans Anytwo. **L'import simple crée réellement des données dans Anytwo.** La source Anytype est toujours interrogée en lecture seule. L'option « Avec synchronisation » n'est **pas encore opérationnelle** et ne permet pas l'import réel.
@@ -17,7 +19,7 @@ Application Python + interface web locale permettant d'importer des espaces, col
 
 Pour explorer l'interface sans application ouverte : `demo.bat` ou `python server.py --demo`. Le bouton d'import **reste désactivé en démonstration**.
 
-Aucune dépendance Python supplémentaire n'est obligatoire. L'application web se limite à `127.0.0.1`, sur un port à partir de `8765`. Laisser ouverte la fenêtre console pendant l'utilisation.
+Aucune dépendance Python supplémentaire n'est obligatoire. L'application web se limite à `127.0.0.1`, sur un port à partir de `8766`. Laisser ouverte la fenêtre console pendant l'utilisation.
 
 **Connexion** : Anytype écoute normalement sur `31009` avec une clé API obtenue par appairage. Anytwo est détecté automatiquement (`31310`, `7001`, `2657`, `5344`, puis ports en écoute de `any.exe` sous Windows), ou via le bouton de statut « API ». Les ports sont mémorisés sous `%APPDATA%\anytype-anytwo-importer\settings.json`. La clé Anytype est protégée par Windows DPAPI (permissions de fichier utilisateur sous macOS/Linux).
 

@@ -8,11 +8,40 @@
 <body>
 <div class="app-shell">
   <header class="topbar">
-    <div class="brand"><div class="brand-symbol"><span>↗</span></div><div><div class="brand-title">Any2Any</div><div class="brand-subtitle">Anytype → Anytwo · Outil de migration · Bêta 0.9.3</div></div></div>
+    <div class="brand"><div class="brand-symbol"><span>↗</span></div><div><div class="brand-title">Any2Any <small id="app-version"></small></div><div class="brand-subtitle">Anytype / Notion → Anytwo · Outil expérimental</div></div></div>
     <div class="top-actions"><label class="language-picker"><span class="visually-hidden">Langue</span><select id="ui-language" data-language-choice aria-label="Langue de l’interface"><option value="fr">FR</option><option value="en">EN</option><option value="de">DE</option></select></label><span id="demo-badge" class="chip orange hidden">Mode démo</span><button class="status-chip" id="connection-button" title="État des API"><span id="mini-dot" class="dot"></span><span id="mini-warning" class="status-alert hidden" aria-hidden="true">!</span><span id="connection-text">Vérification des API</span></button></div>
   </header>
 
   <main class="content">
+    <section class="source-choice"><label for="source-kind">Source des données</label><select id="source-kind"><option value="anytype">Anytype</option><option value="notion">Notion</option></select></section>
+    <section id="notion-workspace" class="hidden" aria-label="Import depuis Notion">
+      <div class="title-section"><div><div class="eyebrow">NOTION → ANYTWO</div><h1>Importer vos données</h1><p>Choisissez précisément ce que vous souhaitez transférer depuis Notion vers Anytwo.</p></div><div class="preview-label"><span class="tiny-dot"></span> Import local · source inchangée</div></div>
+      <section class="compat-notice" aria-label="Avertissement sur la compatibilité"><div class="compat-notice-icon" aria-hidden="true">!</div><div class="compat-notice-copy"><strong>Attention : certains éléments Notion ne pourront pas être importés dans Anytwo.</strong><span>Des différences de fonctionnement peuvent aussi empêcher une restitution identique.</span></div><button id="notion-compat-details" class="compat-more" type="button" aria-haspopup="dialog">Voir plus <span aria-hidden="true">↗</span></button></section>
+      <div class="workspace notion-grid">
+        <section class="panel source-panel"><div class="panel-head"><div><span class="panel-step">01</span><h2>Choix des éléments à importer</h2></div><span class="panel-tag">Notion</span></div><div class="panel-body notion-stack">
+          <div class="source-label-line"><label for="notion-space">ESPACE NOTION</label><button id="notion-refresh" class="btn ghost small" disabled>↻ Mettre à jour</button></div>
+          <select id="notion-space" disabled><option value="">Choisir un espace…</option></select>
+          <p class="muted-text">Ce jeton donne accès à un seul espace. Seul le contenu autorisé est proposé.</p>
+          <label class="check-row entire-row"><input id="notion-whole" type="checkbox" disabled><span class="check-copy"><strong>Tout sélectionner dans cet espace</strong><small>Toutes les racines accessibles et leurs descendants</small></span></label>
+          <div id="notion-tree" class="notion-tree" aria-label="Arborescence Notion"><p>Validez la connexion pour charger les éléments accessibles.</p></div>
+          <p class="muted-text">Sélection sur trois niveaux : racine → niveau 1 → niveau 2. Cocher un élément inclut tous ses descendants, même ceux qui ne sont pas affichés. Les niveaux plus profonds ne sont pas sélectionnables individuellement.</p>
+          <label for="notion-reference">Ajouter un élément par son lien ou identifiant</label><div class="notion-actions"><input id="notion-reference" class="text-input" placeholder="https://www.notion.so/…"><button id="notion-resolve" class="btn ghost" disabled>Ajouter</button></div>
+          <p id="notion-prefetch-status" class="muted-text" role="status"></p><p id="notion-catalog-status" class="muted-text"></p>
+        </div></section>
+      <section class="panel target-panel"><div class="panel-head"><div><span class="panel-step">02</span><h2>Configuration de l’import</h2></div><span class="panel-tag target-tag">Anytwo</span></div><div class="panel-body target-body">
+        <div id="notion-empty-target" class="empty-target"><div class="empty-icon">☷</div><strong>Aucun élément sélectionné</strong><p>Sélectionnez un espace, une page ou une base à gauche pour configurer sa destination.</p></div>
+        <div id="notion-configured-target" class="hidden"><div class="selected-summary"><div class="summary-icon">↳</div><div><small>SÉLECTION ACTUELLE</small><strong id="notion-selection-name">—</strong><span id="notion-pages"></span></div></div>
+          <div class="form-section"><div class="source-label-line"><label class="field-label" for="notion-target">CHOIX DE L’ESPACE DE DESTINATION</label><button id="notion-target-check" class="btn ghost small" disabled>↻ Mettre à jour</button></div><div class="select-wrap"><select id="notion-target" disabled><option value="">Destination Anytwo à vérifier</option></select><span class="down">⌄</span></div><div id="notion-target-name-row" class="field-followup hidden"><label class="field-label" for="notion-target-name">NOM DU NOUVEL ESPACE</label><input id="notion-target-name" class="text-input" maxlength="120" placeholder="Nom de l’espace"></div><p id="notion-destination-summary" class="field-hint"></p><p id="notion-target-status" class="field-hint" role="status"></p></div>
+          <div class="form-section"><label class="field-label">COLLECTIONS ET PROPRIÉTÉS</label><p id="notion-collection-policy" class="field-hint"></p><p class="field-hint">Les bases intégrées seront affichées par une vue inline dans leur page, avec leurs filtres, tris et propriétés compatibles.</p></div>
+        </div>
+        <div class="target-footer"><div class="options-title">OPTIONS COMPLÉMENTAIRES</div><label class="check-row option-row"><input type="checkbox" id="notion-files-option" checked><span><strong>Récupérer les fichiers</strong><small>Images, documents et pièces jointes</small></span></label><label class="check-row option-row"><input type="checkbox" id="notion-links-option"><span><strong>Importer les éléments liés hors de l’arborescence</strong><small>Les descendants des éléments choisis sont toujours inclus. Cette option étend le périmètre aux pages liées.</small></span></label><div class="actions"><button id="notion-analyse" class="btn ghost" disabled title="Vérifier la sélection et sa compatibilité sans écriture">⌁ &nbsp;Tester</button><button id="notion-import" class="btn primary" disabled title="Choisissez une sélection et une destination">Importer <span>→</span></button></div><p class="actions-notice">Tester vérifie la sélection sans écriture. Importer crée une copie dans Anytwo ; Notion reste inchangé. Une interruption conserve les éléments déjà créés. Un nouvel import crée une copie supplémentaire.</p></div>
+      </div></section>
+      </div>
+      <section id="notion-report-area" class="hidden" aria-label="Bilan de vérification Notion">
+        <div id="notion-analysis-progress" class="notion-analysis-progress hidden" role="status" aria-live="polite"><span id="notion-analysis-spinner" class="loader"></span><div><strong id="notion-analysis-stage">Préparation de l’analyse…</strong><p id="notion-analysis-detail">Lecture seule : aucune écriture dans Notion ou Anytwo.</p></div><button id="notion-cancel" class="btn ghost small">Annuler</button></div><div id="notion-analysis" aria-live="polite"></div></section>
+      <footer class="footer">Traitement local · Notion reste en lecture seule · L’import modifie Anytwo</footer>
+    </section>
+    <div id="anytype-content">
     <div class="title-section"><div><div class="eyebrow">MIGRATION LOCALE</div><h1>Importer vos données</h1><p>Choisissez précisément ce que vous souhaitez transférer depuis Anytype vers Anytwo.</p></div><div class="preview-label"><span class="tiny-dot"></span> Import local · source inchangée</div></div>
 
     <section class="compat-notice" aria-label="Avertissement sur la compatibilité"><div class="compat-notice-icon" aria-hidden="true">!</div><div class="compat-notice-copy"><strong>Attention : certains éléments Anytype ne pourront pas être importés dans Anytwo.</strong><span>Des différences de fonctionnement peuvent aussi empêcher une restitution identique.</span></div><button id="compat-details" class="compat-more" type="button" aria-haspopup="dialog">Voir plus <span aria-hidden="true">↗</span></button></section>
@@ -50,9 +79,36 @@
       </section>
     </div>
     <footer class="footer">Traitement local · Anytype reste en lecture seule · L’import modifie Anytwo après confirmation</footer>
+    </div>
   </main>
 </div>
 
+
+<div id="notion-loading-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notion-loading-title">
+  <div class="dialog notion-loading-dialog"><button id="notion-loading-close" class="close-button" aria-label="Fermer le chargement et continuer en arrière-plan">×</button><div id="notion-loading-spinner" class="loader notion-large-loader"></div><h2 id="notion-loading-title">Chargement des données Notion</h2><p id="notion-loading-message" role="status" aria-live="polite">Récupération des éléments de premier niveau…</p><p class="muted-text">Vous pouvez fermer cette fenêtre pour faire autre chose. La recherche continue en arrière-plan.</p><button id="notion-loading-dismiss" class="btn ghost">Continuer sans attendre</button></div>
+</div>
+<div id="notion-settings-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notion-settings-title">
+  <div class="dialog notion-settings-dialog" tabindex="-1">
+    <div class="dialog-head"><button id="notion-settings-close" class="close-button" aria-label="Fermer les paramètres">×</button><h2 id="notion-settings-title">Connexion à Notion et Anytwo</h2><p>Notion via Internet · Anytwo sur cet ordinateur</p></div>
+    <div id="notion-connection-progress" class="notion-connection-progress" role="status" aria-live="polite"><span id="notion-connection-spinner" class="loader hidden"></span><span id="notion-dialog-stage">Configurez les accès aux applications.</span></div>
+    <div class="notion-settings-grid">
+        <section class="panel"><div class="panel-head"><h2>Notion · Source</h2></div><div class="panel-body notion-stack">
+          <div id="notion-token-entry" class="notion-stack"><label for="notion-token">Jeton de connexion interne Notion</label><input id="notion-token" type="password" autocomplete="off" class="text-input" placeholder="Saisir le jeton ici, jamais dans le chat"></div><p id="notion-token-available" class="notion-info hidden" role="status">Un jeton mémorisé est disponible sur cet ordinateur. Vous pouvez valider la connexion sans le saisir à nouveau.</p>
+          <label class="check-row"><input id="notion-remember" type="checkbox">Mémoriser sur cet ordinateur (protection Windows)</label>
+          <div class="notion-actions"><button id="notion-connect" class="btn primary">Valider la connexion</button><button id="notion-forget" class="btn ghost">Oublier le jeton</button></div>
+          <p id="notion-status" role="status" aria-live="polite">Non connecté.</p><p class="muted-text">Connexion à l’API Notion via Internet : l’application Notion peut rester fermée.</p>
+          <details><summary>Comment autoriser le contenu ?</summary><p>Créez une connexion interne Any2Any dans le portail développeur Notion, avec la capacité de lecture du contenu. Dans « Content access », autorisez les pages et bases voulues. Aucun droit d’insertion ou de modification n’est nécessaire.</p><a href="https://developers.notion.com/guides/get-started/internal-connections" target="_blank" rel="noreferrer">Guide officiel Notion</a><p>Sans mémorisation, le jeton reste uniquement dans la session du serveur local. Une connexion interne est propre à un espace Notion.</p></details>
+        </div></section>
+
+      <section class="panel"><div class="panel-head"><h2>Anytwo · Destination</h2></div><div class="panel-body notion-stack">
+        <p>Ouvrez Anytwo et autorisez son API locale pour choisir la destination.</p>
+        <label for="notion-anytwo-port">Port de l’API Anytwo</label><input id="notion-anytwo-port" class="text-input" type="number" min="1" max="65535" placeholder="Détection automatique">
+        <button id="notion-anytwo-save" class="btn ghost">Enregistrer et vérifier Anytwo</button><p id="notion-anytwo-status" role="status" aria-live="polite">Accès Anytwo à vérifier.</p>
+      </div></section>
+    </div>
+    <div class="dialog-footer"><button id="notion-show-loading" class="btn ghost hidden">Afficher le chargement</button><button id="notion-settings-continue" class="btn primary">Continuer</button></div>
+  </div>
+</div>
 <div id="compat-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="compat-title" aria-describedby="compat-intro"><div class="dialog compat-dialog"><div class="compat-dialog-top"><div class="compat-dialog-symbol" aria-hidden="true">!</div><div><div class="eyebrow">AVANT D’IMPORTER</div><h2 id="compat-title">Limites connues de la migration</h2></div><button class="close-button" id="close-compat" type="button" aria-label="Fermer">×</button></div><div class="compat-dialog-body"><p id="compat-intro">Certaines fonctionnalités d’Anytype ne peuvent pas être reprises à l’identique dans Anytwo. Cette liste <strong>n’est pas exhaustive</strong>. Les différences de fonctionnement entre les deux applications peuvent également empêcher l’import de fonctionnalités pourtant présentes dans les deux.</p><h3>Éléments signalés à ce stade</h3><ul class="compat-list"><li>Couleur de background</li><li>Types</li><li>Templates</li><li>Propriétés globales</li><li>Propriétés locales</li><li>Table des matières</li><li>Bookmarks</li><li>Vues / Queries</li><li>Certaines vues de collection</li><li>Filtres avancés</li><li>Collection et vues intégrées dans les pages</li><li>Propriétés intégrées à la page</li><li>Discussions</li></ul><p class="compat-footnote">Le contenu de ces éléments pourra parfois être adapté ou conservé partiellement, mais pas nécessairement leur comportement ou leur présentation. La conversion réelle peut entraîner des adaptations ; consultez le bilan de chaque import.</p></div><div class="dialog-footer"><button class="btn primary" id="ack-compat" type="button">Compris</button></div></div></div>
 
 <div id="connection-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="connect-title"><div class="dialog connection-dialog"><div class="dialog-head"><button class="close-button close-settings hidden" id="close-settings" type="button" title="Fermer les paramètres" aria-label="Fermer">×</button><div class="connect-logo">↔</div><h2 id="connect-title">Connexion aux applications</h2><p>Vérification des accès locaux avant de charger vos espaces.</p></div>
@@ -64,7 +120,13 @@
   </div><div class="dialog-footer"><button class="btn ghost" id="retry-btn">↻ &nbsp;Enregistrer et vérifier</button><button class="btn primary hidden" id="continue-btn">Continuer →</button></div>
 </div></div>
 
+<div id="source-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="source-title" aria-describedby="source-intro"><div class="dialog source-dialog">
+  <div class="dialog-head"><div class="dialog-icon" aria-hidden="true">↗</div><h2 id="source-title">D’où souhaitez-vous importer ?</h2><p id="source-intro">Choisissez votre application source. Nous vérifierons ensuite les accès nécessaires.</p></div>
+  <div class="source-buttons"><button id="choose-anytype" class="source-app-button" type="button"><strong>Anytype</strong><span>Depuis l’application sur cet ordinateur</span></button><button id="choose-notion" class="source-app-button" type="button"><strong>Notion</strong><span>Depuis votre espace en ligne</span></button></div>
+  <p id="source-choice-status" class="muted-text" role="status"></p>
+</div></div>
+
 <div id="log-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="log-title"><div class="dialog log-dialog"><div class="log-head"><div><div class="eyebrow" id="log-eyebrow">SIMULATION</div><h2 id="log-title">Vérification de l’import</h2><p id="log-status">Analyse des éléments sélectionnés…</p></div><button class="close-button" id="close-log" title="Fermer">×</button></div><div id="log-lines" class="log-lines" aria-live="polite"></div><section id="import-report" class="import-report hidden"></section><div class="dialog-footer"><span class="muted-text" id="log-counter">0 événement</span><button class="btn ghost hidden" id="export-report">Exporter le bilan JSON</button><button class="btn ghost" id="stop-log">Fermer</button></div></div></div>
 <div class="toast-container" id="toast-container"></div>
-<script src="/i18n.js" defer></script><script src="/app.js" defer></script>
+<script src="/i18n.js" defer></script><script src="/notion.js" defer></script><script src="/app.js" defer></script>
 </body></html>

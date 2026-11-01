@@ -2,7 +2,7 @@
 import hashlib
 import re
 import unicodedata
-from api_clients import APIError,local_get,local_binary,unwrap_list,_segment
+from anytwo_backend import APIError,local_get,local_binary,unwrap_list,_segment
 
 
 def strip_import_prefix(name):

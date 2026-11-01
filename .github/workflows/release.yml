@@ -1,0 +1,47 @@
+name: Test and publish Any2Any
+
+on:
+  push:
+    branches: [release/unified]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: any2any-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Python regression suite
+        run: python3 -B -m unittest discover -s tests -q
+      - name: Frontend scenarios
+        run: |
+          node tests/test_notion_ui.cjs
+          node tests/test_startup_ui.cjs
+          node --check static/app.js
+          node --check static/notion.js
+          node --check static/i18n.js
+
+  publish:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build and publish versioned archive and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -B tools/publish_release.py

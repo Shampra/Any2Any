@@ -1,6 +1,7 @@
 """API clients for Anytype v2 (read only) and Anytwo v1 (opt-in write)."""
 from __future__ import annotations
 
+from app_version import VERSION
 import csv
 import io
 import os
@@ -28,7 +29,7 @@ def local_get(port: int, path: str, *, method='GET', body: dict | None = None,
     url = f'http://127.0.0.1:{int(port)}{path}'
     data = json.dumps(body).encode('utf-8') if body is not None else None
     req = urllib.request.Request(url, data=data, method=method,
-                                 headers={'Accept': 'application/json', 'User-Agent': 'Any2Any/0.9.3',
+                                 headers={'Accept': 'application/json', 'User-Agent': f'Any2Any/{VERSION}',
                                           **({'Content-Type': 'application/json'} if body is not None else {}),
                                           **(headers or {})})
     try:
@@ -337,7 +338,7 @@ def discover_anytwo_port(preferred: int | None = None) -> int | None:
 def local_binary(port, path, *, method='GET', data=None, content_type=None,
                  headers=None, max_bytes=100 * 1024 * 1024, timeout=45):
     """Bounded binary transfer, loopback only, and no environment proxies."""
-    req_headers = {'User-Agent': 'Any2Any/0.9.3', **(headers or {})}
+    req_headers = {'User-Agent': f'Any2Any/{VERSION}', **(headers or {})}
     if content_type:
         req_headers['Content-Type'] = content_type
     req = urllib.request.Request(f'http://127.0.0.1:{int(port)}{path}',

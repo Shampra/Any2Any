@@ -47,7 +47,7 @@ def ui_clause(converter,node,identity):
     prop,spec,form=ui_field(converter,node['property'])
     op=node['condition'];fmt=spec.get('format');value=node.get('value')
     if fmt in ('text','url','email','phone'):
-        operator={'equal':'is','not_equal':'is-not'}.get(op)
+        operator={'equal':'is','not_equal':'is-not','notion_contains':'contains','notion_not_contains':'does-not-contain'}.get(op)
         if operator is None:raise UnsupportedView('Condition texte non transposable dans une vue en ligne')
         if not isinstance(value,str) or not value.strip():raise UnsupportedView('Filtre texte vide ignoré par le client Inline view')
         condition={'kind':'text','operator':operator,'value':str(value)}
@@ -112,7 +112,7 @@ def inline_records(converter,block,scope,instance,issues):
             if view.get('group_by'):raise UnsupportedView('Regroupement non pris en charge par les vues en ligne du client')
             records.append({'id':instance+'.list' if not records else instance+'.view-'+str(index),
                 'dataview':instance,'name':view.get('name') or 'Vue Anytype','pos':f'a{index:06d}',
-                'layout':layout,'query':query,'layoutSettings':settings})
+                'layout':layout,'query':query,'layoutSettings':settings, **({'icon':view['icon']} if view.get('icon') else {})})
         except (UnsupportedView,ValueError,TypeError,KeyError) as exc:
             failed.append(str(exc))
             if index==0:active_failed=True

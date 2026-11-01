@@ -1,0 +1,215 @@
+{
+  "formatVersion": "2.0",
+  "kind": "page",
+  "type": "page",
+  "template": "none",
+  "icon": {
+    "format": "emoji",
+    "emoji": "🧪"
+  },
+  "properties": {
+    "name": "Modèle de test — Any2Any"
+  },
+  "blocks": [
+    {
+      "type": "heading_1",
+      "indent": 0,
+      "text": "Mises en page et contenu"
+    },
+    {
+      "type": "paragraph",
+      "indent": 0,
+      "text": "Données fictives pour contrôler la fidélité des imports."
+    },
+    {
+      "type": "paragraph",
+      "indent": 0,
+      "text": "**Gras**, *italique*, <u>souligné</u>, ~~barré~~, `code`, [lien](https://example.com)."
+    },
+    {
+      "type": "paragraph",
+      "indent": 0,
+      "text": "<font color=\"red\">Rouge</font> et <font background=\"yellow\">fond jaune</font>."
+    },
+    {
+      "type": "paragraph",
+      "indent": 0,
+      "text": ""
+    },
+    {
+      "type": "paragraph",
+      "indent": 0,
+      "text": "Paragraphe après un bloc vide."
+    },
+    {
+      "type": "heading_2",
+      "indent": 0,
+      "text": "Listes et cases"
+    },
+    {
+      "type": "bulleted_list_item",
+      "indent": 0,
+      "text": "Niveau 1"
+    },
+    {
+      "type": "bulleted_list_item",
+      "indent": 1,
+      "text": "Niveau 2"
+    },
+    {
+      "type": "numbered_list_item",
+      "indent": 0,
+      "text": "Première étape"
+    },
+    {
+      "type": "numbered_list_item",
+      "indent": 0,
+      "text": "Deuxième étape"
+    },
+    {
+      "type": "checkbox",
+      "indent": 0,
+      "text": "À faire",
+      "checked": false
+    },
+    {
+      "type": "checkbox",
+      "indent": 0,
+      "text": "Terminé",
+      "checked": true
+    },
+    {
+      "type": "toggle",
+      "indent": 0,
+      "text": "Toggle de texte"
+    },
+    {
+      "type": "paragraph",
+      "indent": 1,
+      "text": "Contenu repliable"
+    },
+    {
+      "type": "toggle_heading_2",
+      "indent": 0,
+      "text": "Titre repliable"
+    },
+    {
+      "type": "paragraph",
+      "indent": 1,
+      "text": "Contenu du titre"
+    },
+    {
+      "type": "quote",
+      "indent": 0,
+      "text": "Citation de démonstration"
+    },
+    {
+      "type": "callout",
+      "indent": 0,
+      "text": "Un encadré de démonstration",
+      "icon": {
+        "format": "emoji",
+        "emoji": "💡"
+      }
+    },
+    {
+      "type": "divider",
+      "indent": 0,
+      "style": "line"
+    },
+    {
+      "type": "row",
+      "indent": 0
+    },
+    {
+      "type": "column",
+      "indent": 1
+    },
+    {
+      "type": "paragraph",
+      "indent": 2,
+      "text": "Colonne gauche"
+    },
+    {
+      "type": "column",
+      "indent": 1
+    },
+    {
+      "type": "paragraph",
+      "indent": 2,
+      "text": "Colonne droite"
+    },
+    {
+      "type": "table",
+      "indent": 0,
+      "columns": [
+        {
+          "width": 200
+        },
+        {
+          "width": 120
+        }
+      ],
+      "rows": [
+        {
+          "is_header": true,
+          "cells": [
+            "Élément",
+            "État"
+          ]
+        },
+        {
+          "cells": [
+            "Case réelle",
+            {
+              "type": "checkbox",
+              "text": "Terminé",
+              "checked": true
+            }
+          ]
+        },
+        {
+          "cells": [
+            "Texte en forme",
+            {
+              "type": "paragraph",
+              "text": "**Gras** et <u>souligné</u>"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "code",
+      "indent": 0,
+      "text": "def addition(a, b):\n    return a + b",
+      "language": "python"
+    },
+    {
+      "type": "equation",
+      "indent": 0,
+      "text": "E=mc^2",
+      "processor": "latex"
+    },
+    {
+      "type": "embed",
+      "indent": 0,
+      "text": "https://www.youtube.com/watch?v=LMXMbeKyneQ",
+      "processor": "youtube"
+    },
+    {
+      "type": "bookmark",
+      "indent": 0,
+      "url": "https://anytype.io"
+    },
+    {
+      "type": "table_of_contents",
+      "indent": 0
+    },
+    {
+      "type": "heading_3",
+      "indent": 0,
+      "text": "Fin du modèle"
+    }
+  ]
+}

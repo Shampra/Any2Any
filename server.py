@@ -1,4 +1,4 @@
-"""Local Anytype → Anytwo migrator. Python 3.10+; no remote hosting."""
+"""Local Anytype / Notion → Anytwo migrator. Python 3.10+; no remote hosting."""
 from __future__ import annotations
 import argparse
 import base64
@@ -12,12 +12,15 @@ import urllib.parse
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from app_version import VERSION
 from api_clients import Anytype, Anytwo, APIError, discover_anytwo_port, probe_anytwo, candidate_anytwo_ports
 from logic import build_inventory, summary_inventory, simulate
 from migration import Engine
 
 ROOT = pathlib.Path(getattr(sys, '_MEIPASS', pathlib.Path(__file__).resolve().parent))
-CONFIG_DIR = pathlib.Path(os.getenv('APPDATA', pathlib.Path.home() / '.config')) / 'anytype-anytwo-importer'
+from runtime_profile import get_profile, PROFILES, seed_unified_settings
+RUNTIME_PROFILE = get_profile()
+CONFIG_DIR = RUNTIME_PROFILE.config_dir
 CONFIG_PATH = CONFIG_DIR / 'settings.json'
 STATIC = ROOT / 'static'
 STATE = {'settings': {}, 'inventories': {}, 'demo': False, 'latest_report': None}
@@ -79,9 +82,13 @@ def load_settings():
         data = json.loads(CONFIG_PATH.read_text(encoding='utf-8'))
         return {'anytwo_port': data.get('anytwo_port', 31310),
                 'anytype_port': data.get('anytype_port', 31009),
-                'anytype_key': protected_decode(data.get('anytype_key', ''))}
+                'anytype_key': protected_decode(data.get('anytype_key', '')),
+                'notion_token':protected_decode(data.get('notion_token','')),
+                'notion_remember':bool(data.get('notion_token')),
+                'source_kind':data.get('source_kind','notion' if RUNTIME_PROFILE.name=='notion-dev' else 'anytype')}
     except (OSError, ValueError, TypeError):
-        return {'anytwo_port': 31310, 'anytype_port': 31009, 'anytype_key': ''}
+        return {'anytwo_port': 31310, 'anytype_port': 31009, 'anytype_key': '', 'notion_token':'','notion_remember':False,
+                'source_kind':'notion' if RUNTIME_PROFILE.name=='notion-dev' else 'anytype'}
 
 
 def save_settings():
@@ -90,12 +97,24 @@ def save_settings():
     encoded = protected_encode(settings.get('anytype_key', '')) if settings.get('anytype_key') else ''
     data = {'anytwo_port': settings.get('anytwo_port'),
             'anytype_port': settings.get('anytype_port', 31009),
-            'anytype_key': encoded}
+            'anytype_key': encoded,
+            'source_kind':settings.get('source_kind','notion'),
+            'notion_token':protected_encode(settings.get('notion_token','')) if settings.get('notion_remember') else ''}
     tmp = CONFIG_PATH.with_suffix('.tmp')
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
     if os.name != 'nt':
         tmp.chmod(0o600)
     tmp.replace(CONFIG_PATH)
+
+
+def save_notion_report(report):
+    """Checkpoint each import in its isolated profile, without source credentials."""
+    folder=CONFIG_DIR/'reports';folder.mkdir(parents=True,exist_ok=True)
+    path=folder/('notion-'+str(report['id'])+'.json')
+    tmp=path.with_suffix('.tmp')
+    tmp.write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+    tmp.replace(path)
+    with LOCK:STATE['latest_report']=report
 
 
 def demo_inventory(space_id):
@@ -145,7 +164,7 @@ class DemoAnytype:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'Any2AnyUI/0.9.3'
+    server_version = 'Any2AnyUI/' + VERSION
     def log_message(self, fmt, *args):
         if os.getenv('IMPORTER_DEBUG'):
             super().log_message(fmt, *args)
@@ -189,7 +208,7 @@ class Handler(BaseHTTPRequestHandler):
         path = urllib.parse.urlsplit(self.path).path
         if path == '/':
             path = '/index.html'
-        if path in ('/index.html', '/app.js', '/style.css', '/pair.html', '/pair.js', '/i18n.js', '/anytwo-logo.png'):
+        if path in ('/index.html', '/app.js', '/style.css', '/pair.html', '/pair.js', '/i18n.js', '/anytwo-logo.png', '/notion.js'):
             file = STATIC / path.lstrip('/')
             if file.exists():
                 data = file.read_bytes()
@@ -202,6 +221,9 @@ class Handler(BaseHTTPRequestHandler):
             self.response({'error': 'Origine refusée.'}, 403)
             return
         try:
+            if path.startswith('/api/notion/'):
+                from notion_routes import handle
+                return self.response(handle('GET',path,{},STATE,save_settings,protected_encode,urllib.parse.urlsplit(self.path).query))
             if path == '/api/check/anytype':
                 if STATE['demo']:
                     return self.response({'state':'ok','detail':'Mode démonstration'})
@@ -270,7 +292,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.response({'anytype_port':s.get('anytype_port',31009),
                                       'anytwo_port':s.get('anytwo_port',31310),
                                       'anytype_has_key':bool(s.get('anytype_key')),
-                                      'demo':STATE['demo']})
+                                      'demo':STATE['demo'],
+                                      'profile':RUNTIME_PROFILE.name,
+                                      'version':VERSION,
+                                      'notion_available':True,
+                                      'notion_import_available':not STATE['demo'],
+                                      'choose_source_on_start':RUNTIME_PROFILE.name=='unified',
+                                      'notion_has_token':bool(s.get('notion_token')),
+                                      'source_kind':s.get('source_kind','notion' if RUNTIME_PROFILE.name=='notion-dev' else 'anytype')})
             self.response({'error':'Ressource introuvable'},404)
         except (APIError, ValueError, KeyError, TypeError) as exc:
             self.fail(exc)
@@ -281,7 +310,14 @@ class Handler(BaseHTTPRequestHandler):
         try:
             data = self._json()
             path = urllib.parse.urlsplit(self.path).path
+            if path.startswith('/api/notion/'):
+                from notion_routes import handle
+                return self.response(handle('POST',path,data,STATE,save_settings,protected_encode,
+                                            import_lock=IMPORT_LOCK,save_report=save_notion_report))
             if path == '/api/config':
+                if 'source_kind' in data:
+                    if data['source_kind'] not in ('anytype','notion'):raise ValueError('Source inconnue.')
+                    STATE['settings']['source_kind']=data['source_kind']
                 if STATE['demo']:
                     return self.response({'ok':True})
                 s = STATE['settings']
@@ -307,6 +343,7 @@ class Handler(BaseHTTPRequestHandler):
                 save_settings()
                 return self.response({'ok':True})
             if path == '/api/simulate':
+                if STATE['settings'].get('source_kind')=='notion':raise ValueError('Utilisez l’analyse Notion dédiée.')
                 self._stream_test(data)
                 return
             if path == '/api/import':
@@ -317,6 +354,8 @@ class Handler(BaseHTTPRequestHandler):
             self.fail(exc)
 
     def _stream_import(self, plan):
+        if plan.get('source_kind')=='notion' or STATE['settings'].get('source_kind')=='notion':
+            return self.response({'error':'Import Notion non encore activé ; utilisez son analyse sans écriture.'},400)
         if STATE['demo']:
             return self.response({'error':'Import réel désactivé dans le mode démonstration.'},400)
         sid=(plan.get('source_space') or {}).get('id')
@@ -407,18 +446,31 @@ def find_available(start):
     raise RuntimeError('Aucun port web local disponible.')
 
 
+def configure_runtime(profile_name):
+    global RUNTIME_PROFILE, CONFIG_DIR, CONFIG_PATH
+    RUNTIME_PROFILE=get_profile(profile_name)
+    CONFIG_DIR=RUNTIME_PROFILE.config_dir
+    CONFIG_PATH=CONFIG_DIR/'settings.json'
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Interface locale Anytype → Anytwo (import simple opérationnel).')
+    if hasattr(sys.stdout,'reconfigure'):sys.stdout.reconfigure(encoding='utf-8',errors='replace')
+    parser = argparse.ArgumentParser(description='Any2Any : importer Anytype ou Notion dans Anytwo.')
     parser.add_argument('--demo', action='store_true', help='Interface avec données fictives sans APIs')
-    parser.add_argument('--port', type=int, default=8765, help='Port du serveur web de l’interface')
+    parser.add_argument('--profile', choices=tuple(PROFILES), default=RUNTIME_PROFILE.name, help='Profil de configuration (application commune ou développement isolé)')
+    parser.add_argument('--port', type=int, default=None, help='Port web (par défaut : celui du profil)')
     parser.add_argument('--no-browser', action='store_true', help='Ne pas ouvrir le navigateur')
     args = parser.parse_args()
+    configure_runtime(args.profile)
     STATE['demo'] = args.demo
+    seed_unified_settings(RUNTIME_PROFILE)
     STATE['settings'] = load_settings()
-    port = find_available(args.port)
+    port = find_available(args.port if args.port is not None else RUNTIME_PROFILE.port)
     server = ThreadingHTTPServer(('127.0.0.1',port), Handler)
     url = f'http://127.0.0.1:{port}'
-    print(f'Any2Any · Anytype → Anytwo : {url}', flush=True)
+    print(f'Any2Any [{RUNTIME_PROFILE.name}] · Anytype / Notion → Anytwo : {url}', flush=True)
+    print(f'Configuration et rapports isolés : {CONFIG_DIR}',flush=True)
+    print('Anytype : API locale. Notion : API Internet. Les sources restent en lecture seule.',flush=True)
     print('Mode démo : aucun import réel.' if args.demo else 'Import simple disponible : écriture dans Anytwo après confirmation.', flush=True)
     if not args.no_browser:
         threading.Timer(0.6, lambda:webbrowser.open(url)).start()

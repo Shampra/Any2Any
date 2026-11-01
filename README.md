@@ -1,10 +1,10 @@
-# Any2Any — Migrateur Anytype → Anytwo
+# Any2Any — Anytype / Notion → Anytwo
 
 **[Français](README.md) · [English](README.en.md)**
 
-**Any2Any** est un outil de migration permettant de transférer des données d’**Anytype** vers **Anytwo**, à partir des API locales des deux applications.
+**Any2Any** est un outil de migration permettant de transférer des données d’**Anytype** ou de **Notion** vers **Anytwo**. Il utilise les API locales d’Anytype et d’Anytwo, et l’API Internet de Notion.
 
-Il propose une **interface web locale** pour parcourir les espaces Anytype, sélectionner un espace entier, une collection, plusieurs types ou des objets précis, puis choisir leur destination dans Anytwo.
+Une **interface web locale** permet de choisir la source au démarrage, de vérifier les accès, de sélectionner les éléments et de configurer leur destination Anytwo. Anytype et Notion réutilisent le même moteur de destination.
 
 > [!WARNING]
 > **Outil expérimental — versions alpha d’Anytwo**
@@ -15,37 +15,37 @@ Il propose une **interface web locale** pour parcourir les espaces Anytype, sél
 
 ## Fonctionnalités
 
-- **Sélection ciblée** : espaces, collections, types et objets Anytype ; ajout facultatif des objets liés.
+- **Sélection Anytype** : espaces, collections, types et objets ; ajout facultatif des éléments liés.
+- **Sélection Notion** : pages et bases dans une arborescence sélectionnable sur trois niveaux ; les descendants d’un élément coché sont aussi importés. L’option des éléments liés concerne ceux hors de cette arborescence.
+- **Vues Notion** : vues inline et vues de collections, filtres, tris, regroupements compatibles et réglages de galerie. Relations bidirectionnelles et rollups compatibles sont configurés dans Anytwo.
 - **Choix des destinations** : espaces et collections Anytwo existants ou à créer.
 - **Import de contenu** : pages, propriétés et relations, textes mis en forme, liens, images et autres fichiers, dans la limite des capacités de conversion actuelles.
 - **Archives des chats (option)** : chats exclus par défaut ; une page d’archive par chat de l’espace source, avec auteurs, dates, réponses, réactions et pièces jointes selon l’option fichiers.
-- **Import local** : les échanges passent par les API ouvertes par les applications sur votre machine ; Anytype reste en lecture seule.
+- **Sources en lecture seule** : aucune modification d’Anytype ou de Notion. Les fichiers Notion sont récupérés sur Internet ; leurs téléchargements ne reçoivent pas le jeton API.
 - **Simulation avant import** : bouton **Tester** pour examiner le périmètre prévu sans écrire dans Anytwo.
 - **Rapport après import** : objets importés, raisons de leur sélection, adaptations, limitations et erreurs, exportable en JSON.
 - **Interface multilingue** : français, anglais et allemand ; la langue choisie est mémorisée dans le navigateur.
 
 ## Installation et utilisation
 
-**Prérequis :** Python **3.10+**, les clients **Anytype** et **Anytwo** ouverts sur le même ordinateur, et l’autorisation d’accès à l’API Anytype.
+**Prérequis :** Python **3.10+** et le client **Anytwo** ouvert. Pour Anytype, ouvrez aussi son client et autorisez son API. Pour Notion, utilisez un jeton de connexion autorisé à lire les pages voulues ; le client Notion n’a pas besoin d’être ouvert. Aucune bibliothèque Python supplémentaire n’est nécessaire.
 
 1. Téléchargez et décompressez le projet.
-2. Ouvrez Anytype et Anytwo.
+2. Ouvrez Anytwo et, si vous importez depuis Anytype, son client.
 3. Sous Windows, lancez `demarrer.bat` ; sinon, exécutez `python server.py` depuis le dossier du projet.
-4. L’interface s’ouvre dans le navigateur. Vérifiez les connexions aux API et autorisez Anytype si nécessaire.
+4. Choisissez **Anytype** ou **Notion** dans la fenêtre d’accueil, puis vérifiez les accès. Un jeton Notion mémorisé est contrôlé automatiquement. La source peut ensuite être changée dans le sélecteur en haut de l’écran.
 5. Sélectionnez les données à importer et la destination Anytwo.
 6. Utilisez **Tester**, puis **Importer** après avoir vérifié la destination.
 
 Pour consulter l’interface sans ouvrir les applications : lancez normalement `demarrer.bat`, laissez les vérifications API se terminer, puis fermez la fenêtre de connexion avec la croix. Le statut API reste rouge, les imports sont désactivés et le sélecteur FR/EN/DE reste disponible. Pour explorer des données fictives, utilisez `demo.bat` ou `python server.py --demo` (aucun import réel en démonstration).
 
-L’interface écoute uniquement sur `127.0.0.1` (port local à partir de `8765`). Les ports des API et l’autorisation sont mémorisés sur cet ordinateur. Le port Anytwo habituel est `31310` et le port Anytype habituel `31009`.
+L’interface écoute uniquement sur `127.0.0.1` (port local à partir de `8766`). Les réglages sont conservés dans `%APPDATA%/any2any` sous Windows. Les autorisations mémorisées des profils de développement sont reprises à la première ouverture, sans modifier les anciennes configurations. Les secrets mémorisés sont protégés par Windows DPAPI. Le port Anytwo habituel est `31310` et le port Anytype habituel `31009`.
 
 ## Limitations connues
 
-Les applications n’utilisent pas toujours les mêmes modèles de données. Certaines informations peuvent être simplifiées, transformées ou perdues : **types, modèles, propriétés globales ou locales, vues dynamiques et requêtes, filtres avancés, éléments de collection intégrés aux pages, table des matières, discussions, bookmarks enrichis et réglages de présentation**. Cette liste n’est pas exhaustive.
+Les applications ont des modèles différents. Formules figées, boutons, couleurs de texte/fond, rappels, historique et certains formats de vues ou de blocs peuvent être adaptés ou non repris. Les limites affichées dans l’application sont propres à la source choisie ; les bilans précisent les pertes détectées. Consultez aussi [le fonctionnement de l’import Notion](docs/NOTION-IMPORT.fr.md).
 
-Les embeds, les mises en page complexes et certains formats peuvent ne pas être reconstruits comme des blocs natifs Anytwo, même lorsque l’application sait les afficher manuellement. Les rapports d’import signalent les adaptations détectées, mais **ne peuvent pas prouver à eux seuls que toutes les données ont été fidèlement restituées**.
-
-Le mode **Import simple** crée de nouveaux objets à chaque exécution. La **synchronisation**, la reprise automatique après interruption, la déduplication et l’annulation ne sont **pas encore disponibles**.
+L’import simple crée de nouvelles copies à chaque lancement. Une relance peut donc créer des doublons. Les lectures Notion interrompues peuvent être réutilisées en mémoire pendant 30 minutes ; cela ne reprend pas automatiquement les écritures et ne constitue pas une synchronisation. Il n’y a pas d’annulation globale.
 
 ## À propos du projet
 
