@@ -16,8 +16,9 @@
 - **Anytype selection**: spaces, collections, types and objects, with optional linked objects.
 - **Notion selection**: a tree with three selectable levels; selected branches include their deeper descendants. Linked objects outside the tree are optional.
 - **Notion views and properties**: compatible inline and collection views, filters, sorts, grouping, gallery settings, two-way relations and rollups.
-- **Flexible destinations**: use existing Anytwo spaces and collections or create new ones.
+- **Anytwo destination**: choose an existing space or create one. Anytype can also use an existing collection where that mode is offered. Each imported Notion data source creates its own collection/supertag and properties; its schema is not merged into an existing collection.
 - **Content migration**: pages, properties and relations, formatted text, links, images, and other files, subject to the current converter’s capabilities.
+- **Optional Anytype chat archives**: disabled by default; one archive page per source-space chat, with authors, dates, replies, reactions and attachments according to the files option. Chats remain outside ordinary page/type imports.
 - **Read-only sources**: neither Anytype nor Notion is modified. Notion files are downloaded over the Internet without sending the API token to their hosts.
 - **Pre-import simulation**: use **Test** to inspect the planned scope without writing to Anytwo.
 - **Migration report**: imported objects, why they were included, adaptations, unsupported features, and errors, with JSON export.
@@ -27,11 +28,18 @@
 
 **Requirements:** Python **3.10+** and a running **Anytwo** client. For Anytype imports, also open its desktop client and authorize its API. For Notion, provide a connection token with read access to the selected pages; the Notion desktop client is not required. No additional Python libraries are needed.
 
-1. Download and extract the project.
+1. Open the [GitHub releases](https://github.com/Shampra/Any2Any/releases) and download the **application archive** attached to the desired release. Extract it and open its `Any2Any` folder. The attached SHA-256 file can be used to verify the download.
 2. Open Anytwo and, for an Anytype import, Anytype.
 3. Run `demarrer.bat` on Windows, or `python server.py` from the project directory.
 4. Choose **Anytype** or **Notion** in the welcome dialog, then complete the access checks. Saved Notion tokens are checked automatically.
 5. Select your content and destination. Run **Test**, then **Import**.
+
+### Connect your source
+
+- **Anytype**: keep Anytype and Anytwo running. Choose **Authorize in Anytype**, then complete the pairing request. Source reads use the local API.
+- **Notion**: create an internal connection with read access and share the pages/databases you want to import with it. Enter the token only in the tool’s local form. Sharing a page containing a linked view may not grant access to its original database. On Windows, the token can be remembered and later forgotten in settings. Internet access is required; the Notion desktop app can remain closed. See the [Notion connection guide (French)](docs/NOTION-API.fr.md).
+
+The API status button at the top right reopens connection settings. **Retrieve files** and **Import linked items** options adapt to the source and selected scope.
 
 Use `demo.bat` or `python server.py --demo` to explore sample content without real writes. The source selector at the top lets you switch applications later.
 
@@ -39,15 +47,12 @@ The interface listens on `127.0.0.1`, starting at port `8766`. On Windows, setti
 
 ## Known limitations
 
-The applications have different data models. Formula snapshots, buttons, text/background colors, reminders, history and some view or block formats may require adaptation or may be omitted. The app shows source-specific limitations and each report lists detected changes. See [Notion import details (French)](docs/NOTION-IMPORT.fr.md).
+The applications have different data models. Notion formulas become static results. Buttons, text/background colors, reminders, history and some view or block formats may be adapted or omitted. Notion charts are not imported; grouped inline views may become lists. Compatible collection views preserve grouping, filters and sorting. Galleries preserve **Fit image** and pages use **side peek** unless the source explicitly supplies full-page opening. The app shows source-specific limitations and each report lists detected changes. See [Notion import details (French)](docs/NOTION-IMPORT.fr.md).
 
 Simple imports create new copies on every run, so restarting may create duplicates. Interrupted Notion reads can be reused in memory for 30 minutes; this does not automatically resume writes or synchronize data. There is no global rollback.
 
 ## About the project
 
-This is an independent community project and **is not officially affiliated with Anytype or Anytwo**. Any2Any is distributed under the [GNU GPLv3 license](LICENSE). Copyright (c) 2026 Shampra.
+This is an independent project and **is not officially affiliated with Anytype, Notion or Anytwo**. Any2Any is distributed under the [GNU GPLv3 license](LICENSE). Copyright (c) 2026 Shampra.
 
-For implementation details and the current release history, see the [French technical notes](docs/NOTES-TECHNIQUES.fr.md).
-
-
-Chat archives are optional and disabled by default: one page per chat in the source space, with authors, dates, replies, reactions and optional attachments. Chats remain excluded from ordinary page and type imports.
+Detailed documentation: [Anytype import](docs/NOTES-TECHNIQUES.fr.md), [Notion import](docs/NOTION-IMPORT.fr.md) and [Notion connection/API](docs/NOTION-API.fr.md) (French). See the [changelog](CHANGELOG.md) for the release history.
