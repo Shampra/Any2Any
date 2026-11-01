@@ -30,7 +30,7 @@ function harness({saved=false,deferred=null,rejectToken=false,nodes=[root,other]
    else value={};
    return {ok:true,json:async()=>value};
  }};
- vm.createContext(context);vm.runInContext(fs.readFileSync('static/notion.js','utf8'),context);
+ vm.createContext(context);vm.runInContext(fs.readFileSync('app/static/notion.js','utf8'),context);
  return {api:context.window.NotionSource,get,calls,timers,all:element=>element.children.flatMap(x=>[x,...h.all(x)])};
 }
 let h;

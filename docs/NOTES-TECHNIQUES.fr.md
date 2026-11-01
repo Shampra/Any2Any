@@ -1,6 +1,6 @@
 # Any2Any — Migrateur Anytype → Anytwo (v0.9.3)
 
-La version commune se lance avec demarrer.bat et propose Anytype ou Notion avant les vérifications d’accès. Ce document détaille principalement la source Anytype ; le parcours Notion est décrit dans [NOTION-IMPORT.fr.md](NOTION-IMPORT.fr.md).
+La version commune se lance avec Any2Any.exe dans l’archive Windows autonome, ou demarrer.bat dans la version source et propose Anytype ou Notion avant les vérifications d’accès. Ce document détaille principalement la source Anytype ; le parcours Notion est décrit dans [NOTION-IMPORT.fr.md](NOTION-IMPORT.fr.md).
 
 **Version du projet : 0.9.3.** Les sections de changements ci-dessous retracent les versions précédentes. Les améliorations actuelles sont détaillées dans [le journal bilingue](../CHANGELOG.md) et [la fidélité des imports](IMPORT-FIDELITE.fr.md).
 
@@ -13,11 +13,11 @@ Application Python + interface web locale permettant d'importer des espaces, col
 1. Installer Python **3.10 ou plus récent** si nécessaire.
 2. Décompresser toute l'archive.
 3. Ouvrir **Anytype** et **Anytwo** et laisser les espaces charger.
-4. Double-cliquer sur **`demarrer.bat`**, ou exécuter `python server.py`.
+4. Double-cliquer sur **`demarrer.bat`**, ou exécuter `python app/server.py`.
 5. Dans le navigateur local, autoriser Anytype (code à quatre chiffres dans sa fenêtre), puis sélectionner la source et la destination.
 6. Lancer **Tester** pour une simulation de périmètre, puis **Importer** pour les écritures réelles (confirmation supplémentaire).
 
-Pour explorer l'interface sans application ouverte : `demo.bat` ou `python server.py --demo`. Le bouton d'import **reste désactivé en démonstration**.
+Pour explorer l'interface sans application ouverte : `demo.bat` ou `python app/server.py --demo`. Le bouton d'import **reste désactivé en démonstration**.
 
 Aucune dépendance Python supplémentaire n'est obligatoire. L'application web se limite à `127.0.0.1`, sur un port à partir de `8766`. Laisser ouverte la fenêtre console pendant l'utilisation.
 

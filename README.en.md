@@ -26,13 +26,19 @@
 
 ## Getting started
 
-**Requirements:** Python **3.10+** and a running **Anytwo** client. For Anytype imports, also open its desktop client and authorize its API. For Notion, provide a connection token with read access to the selected pages; the Notion desktop client is not required. No additional Python libraries are needed.
+**Requirements:** a running **Anytwo** client. The **standalone Windows** archive bundles Python; the **source** archive requires Python **3.10+**. For Anytype imports, also open its desktop client and authorize its API. For Notion, provide a connection token with read access to the selected pages; the Notion desktop client is not required. No additional Python libraries are needed.
 
-1. Open the [GitHub releases](https://github.com/Shampra/Any2Any/releases) and download the **application archive** attached to the desired release. Extract it and open its `Any2Any` folder. The attached SHA-256 file can be used to verify the download.
+1. Open the [GitHub releases](https://github.com/Shampra/Any2Any/releases) and download the **application archive** attached to the desired release. Extract it into a dedicated folder and open that folder. The attached SHA-256 file can be used to verify the download.
 2. Open Anytwo and, for an Anytype import, Anytype.
-3. Run `demarrer.bat` on Windows, or `python server.py` from the project directory.
+3. In the **standalone Windows** archive, run **`Any2Any.exe`** at the top level. With the **source** archive, run `demarrer.bat` or `python app/server.py` from the project directory.
 4. Choose **Anytype** or **Notion** in the welcome dialog, then complete the access checks. Saved Notion tokens are checked automatically.
 5. Select your content and destination. Run **Test**, then **Import**.
+
+### Folder layout
+
+The Windows archive has `Any2Any.exe` at the top level, dependencies under `_internal/` and documentation under `documentation/`. Keep these folders alongside the executable.
+
+The repository and source archive keep launchers at the top level and runtime files under `app/`. The repository’s `dev/` folder groups tests and development tools and is excluded from the application archive.
 
 ### Connect your source
 
@@ -41,7 +47,7 @@
 
 The API status button at the top right reopens connection settings. **Retrieve files** and **Import linked items** options adapt to the source and selected scope.
 
-Use `demo.bat` or `python server.py --demo` to explore sample content without real writes. The source selector at the top lets you switch applications later.
+Use `demo.bat`, `Any2Any.exe --demo` or `python app/server.py --demo` to explore sample content without real writes. The source selector at the top lets you switch applications later.
 
 The interface listens on `127.0.0.1`, starting at port `8766`. On Windows, settings are stored in `%APPDATA%/any2any`; remembered credentials use Windows DPAPI. The first launch can reuse saved development credentials without changing the old profiles. Typical destination/source API ports are `31310` for Anytwo and `31009` for Anytype.
 

@@ -23,3 +23,11 @@ secrets.json
 # Archives de distribution et travail local non publié
 dist/
 .local/
+
+# Generated standalone Windows bundles
+dev/build/
+
+# Installed local standalone runtime (release assets, not source)
+/Any2Any.exe
+/_internal/
+/docs/binary-distribution/

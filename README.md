@@ -28,14 +28,20 @@ Une **interface web locale** permet de choisir la source au démarrage, de véri
 
 ## Installation et utilisation
 
-**Prérequis :** Python **3.10+** et le client **Anytwo** ouvert. Pour Anytype, ouvrez aussi son client et autorisez son API. Pour Notion, utilisez un jeton de connexion autorisé à lire les pages voulues ; le client Notion n’a pas besoin d’être ouvert. Aucune bibliothèque Python supplémentaire n’est nécessaire.
+**Prérequis :** le client **Anytwo** ouvert. L’archive **Windows autonome** inclut Python ; l’archive **source** demande Python **3.10+**. Pour Anytype, ouvrez aussi son client et autorisez son API. Pour Notion, utilisez un jeton de connexion autorisé à lire les pages voulues ; le client Notion n’a pas besoin d’être ouvert. Aucune bibliothèque Python supplémentaire n’est nécessaire.
 
-1. Ouvrez les [releases GitHub](https://github.com/Shampra/Any2Any/releases) et téléchargez l’archive **de l’application** jointe à la publication souhaitée. Décompressez-la et ouvrez le dossier `Any2Any`. L’empreinte SHA-256 jointe permet de vérifier le téléchargement.
+1. Ouvrez les [releases GitHub](https://github.com/Shampra/Any2Any/releases) et téléchargez l’archive **de l’application** jointe à la publication souhaitée. Décompressez-la dans un dossier dédié, puis ouvrez ce dossier. L’empreinte SHA-256 jointe permet de vérifier le téléchargement.
 2. Ouvrez Anytwo et, si vous importez depuis Anytype, son client.
-3. Sous Windows, lancez `demarrer.bat` ; sinon, exécutez `python server.py` depuis le dossier du projet.
+3. Avec l’archive **Windows autonome**, lancez **`Any2Any.exe`**, directement à la racine. Avec l’archive **source**, lancez `demarrer.bat` ou `python app/server.py` depuis le dossier du projet.
 4. Choisissez **Anytype** ou **Notion** dans la fenêtre d’accueil, puis vérifiez les accès. Un jeton Notion mémorisé est contrôlé automatiquement. La source peut ensuite être changée dans le sélecteur en haut de l’écran.
 5. Sélectionnez les données à importer et la destination Anytwo.
 6. Utilisez **Tester**, puis **Importer** après avoir vérifié la destination.
+
+### Organisation du dossier
+
+L’archive Windows contient `Any2Any.exe` à la racine, les dépendances dans `_internal/` et la documentation dans `documentation/`. Gardez ces dossiers avec l’exécutable.
+
+Le dépôt et l’archive source conservent les lanceurs à la racine ; les fichiers nécessaires sont regroupés dans `app/`. Le dossier `dev/`, présent dans le dépôt mais exclu de l’archive de l’application, rassemble les tests et les outils de développement.
 
 ### Connexion à la source
 
@@ -44,7 +50,7 @@ Une **interface web locale** permet de choisir la source au démarrage, de véri
 
 Le bouton d’état des API, en haut à droite, permet de rouvrir les réglages de connexion. Les options **Récupérer les fichiers** et **Importer les éléments liés** sont adaptées à la source et au périmètre choisis.
 
-Pour explorer des données fictives sans connexion ni import réel, utilisez `demo.bat` ou `python server.py --demo`.
+Pour explorer des données fictives sans connexion ni import réel, utilisez `demo.bat`, `Any2Any.exe --demo` ou `python app/server.py --demo`, selon votre archive.
 
 
 L’interface écoute uniquement sur `127.0.0.1` (port local à partir de `8766`). Les réglages sont conservés dans `%APPDATA%/any2any` sous Windows. Les autorisations mémorisées dans les profils de développement peuvent être reprises à la première ouverture, sans modifier les anciennes configurations. Les secrets mémorisés sont protégés par Windows DPAPI. Le port Anytwo habituel est `31310` et le port Anytype habituel `31009`.

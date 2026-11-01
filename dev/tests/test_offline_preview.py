@@ -2,16 +2,16 @@
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class OfflinePreviewTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.page = (ROOT / 'static' / 'index.html').read_text(encoding='utf-8')
-        cls.script = (ROOT / 'static' / 'app.js').read_text(encoding='utf-8')
-        cls.styles = (ROOT / 'static' / 'style.css').read_text(encoding='utf-8')
-        cls.language = (ROOT / 'static' / 'i18n.js').read_text(encoding='utf-8')
+        cls.page = (ROOT / 'app' / 'static' / 'index.html').read_text(encoding='utf-8')
+        cls.script = (ROOT / 'app' / 'static' / 'app.js').read_text(encoding='utf-8')
+        cls.styles = (ROOT / 'app' / 'static' / 'style.css').read_text(encoding='utf-8')
+        cls.language = (ROOT / 'app' / 'static' / 'i18n.js').read_text(encoding='utf-8')
 
     def test_dialog_close_is_present_and_always_allowed_after_checks(self):
         self.assertIn('id="close-settings"', self.page)
@@ -35,8 +35,8 @@ class OfflinePreviewTests(unittest.TestCase):
         for path in ('README.md', 'README.en.md'):
             text = (ROOT / path).read_text(encoding='utf-8')
             self.assertNotRegex(text.splitlines()[0], r'v\d+\.\d+')
-        self.assertIn("server_version = 'Any2AnyUI/' + VERSION", (ROOT / 'server.py').read_text(encoding='utf-8'))
-        self.assertNotIn('Anytype-Anytwo-Importer/0.8', (ROOT / 'api_clients.py').read_text(encoding='utf-8'))
+        self.assertIn("server_version = 'Any2AnyUI/' + VERSION", (ROOT / 'app' / 'server.py').read_text(encoding='utf-8'))
+        self.assertNotIn('Anytype-Anytwo-Importer/0.8', (ROOT / 'app' / 'api_clients.py').read_text(encoding='utf-8'))
 
 
 if __name__ == '__main__':

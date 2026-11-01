@@ -25,6 +25,11 @@ class PublicationTests(unittest.TestCase):
                 publisher.publish()
             self.assertEqual([c[2] for c in calls],['GET','POST','POST','POST','PATCH']);self.assertNotIn('fake-test-token',output.getvalue())
 
+    def test_missing_windows_bundle_blocks_publication_before_any_github_write(self):
+        with patch.dict(os.environ,{'GITHUB_REPOSITORY':'owner/repo','GITHUB_SHA':'a'*40,'GH_TOKEN':'fake'}),patch.object(publisher,'build',return_value=(Path('unused'),1,'hash')),patch.object(publisher,'request') as request:
+            with self.assertRaisesRegex(ValueError,'Windows archive'):publisher.publish(require_windows=True)
+        request.assert_not_called()
+
     def test_existing_public_release_is_never_overwritten(self):
         with patch.dict(os.environ,{'GITHUB_REPOSITORY':'owner/repo','GITHUB_SHA':'a'*40,'GH_TOKEN':'fake'}),patch.object(publisher,'build',return_value=(Path('unused'),1,'hash')),patch.object(publisher,'request',return_value={'draft':False}) as request:
             with self.assertRaisesRegex(ValueError,'already published'):publisher.publish()

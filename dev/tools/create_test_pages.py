@@ -4,7 +4,7 @@ Run without --apply to generate the payloads only. Credentials never enter repor
 from __future__ import annotations
 import argparse,hashlib,io,json,math,os,struct,sys,time,urllib.error,urllib.parse,urllib.request,uuid,wave
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'../app'))
 import server
 from runtime_profile import get_profile
 from notion_source import Notion,NoRedirect,title

@@ -1,5 +1,20 @@
 # Changes / Modifications
 
+## 0.10.1 — 2026-11-01 — Distribution layout / Organisation de l’application
+
+### English
+
+- Add a standalone Windows x64 ZIP with Any2Any.exe at the top level, a bundled _internal runtime and documentation in a subfolder.
+- Group source/runtime files under app and development material under dev; adapt launchers, builders, tests and release automation.
+- Preserve existing settings and both source import paths. Test the extracted executable before publication.
+
+### Français
+
+- Ajouter un ZIP Windows x64 autonome : Any2Any.exe à la racine, dépendances dans _internal et documentation en sous-dossier.
+- Ranger le code et les ressources dans app, et les outils/tests dans dev ; adapter lanceurs, construction, tests et publication.
+- Conserver les réglages et les deux parcours d’import. Vérifier l’exécutable après extraction avant publication.
+
+
 ## 0.10.0 — 2026-11-01 — English — unified Anytype / Notion application
 
 - Choose Anytype or Notion at startup; shared Anytwo backend and one main launcher.

@@ -4,7 +4,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import sys
-ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
+ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'../app'))
 import server
 import anytwo_backend as backend
 from notion_source import Notion,title

@@ -30,10 +30,10 @@ class UnifiedAppTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             first,_,a=build(output=Path(folder)/'first.zip');second,_,b=build(output=Path(folder)/'second.zip');self.assertEqual(a,b)
             with zipfile.ZipFile(first) as archive:
-                names=archive.namelist();self.assertIn('Any2Any/demarrer.bat',names);self.assertIn('Any2Any/notion_migration.py',names)
+                names=archive.namelist();self.assertIn('demarrer.bat',names);self.assertIn('app/notion_migration.py',names)
                 self.assertFalse(any(any(part in name for part in ('reports/','settings.json','.git/','tests/','tools/','__pycache__','.env')) for name in names))
-                manifest=json.loads(archive.read('Any2Any/BUILD.json'));self.assertIn('server.py',manifest['sha256'])
-                self.assertIn(b'--profile unified',archive.read('Any2Any/demarrer.bat'))
+                manifest=json.loads(archive.read('docs/BUILD.json'));self.assertIn('app/server.py',manifest['sha256'])
+                self.assertIn(b'--profile unified',archive.read('demarrer.bat'))
 
     def test_gallery_fit_and_side_peek_reach_collection_and_inline_view_records(self):
         from unittest.mock import Mock

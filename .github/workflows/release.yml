@@ -2,7 +2,7 @@ name: Test and publish Any2Any
 
 on:
   push:
-    branches: [release/unified]
+    branches: [main, release/layout-0.10.1]
   workflow_dispatch:
 
 permissions:
@@ -17,31 +17,59 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Python regression suite
-        run: python3 -B -m unittest discover -s tests -q
+      - run: python3 -B dev/run_tests.py
       - name: Frontend scenarios
         run: |
-          node tests/test_notion_ui.cjs
-          node tests/test_startup_ui.cjs
-          node --check static/app.js
-          node --check static/notion.js
-          node --check static/i18n.js
+          node dev/tests/test_notion_ui.cjs
+          node dev/tests/test_startup_ui.cjs
+          node --check app/static/app.js
+          node --check app/static/notion.js
+          node --check app/static/i18n.js
+
+  windows:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]')
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check pyinstaller==6.22.3
+      - name: Windows regression suite
+        run: python -B dev/run_tests.py
+      - name: Build and smoke-test extracted standalone executable
+        run: python -B dev/tools/build_windows.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-release
+          path: |
+            dev/dist/Any2Any-Windows-*.zip
+            dev/dist/Any2Any-Windows-*.sha256
+          if-no-files-found: error
 
   publish:
-    needs: test
+    needs: [test, windows]
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - name: Build and publish versioned archive and checksum
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: windows-release
+          path: dev/dist
+      - name: Publish source archive, Windows executable and checksums
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 -B tools/publish_release.py
+        run: python3 -B dev/tools/publish_release.py

@@ -16,7 +16,7 @@ function harness({fail=false,dev=false}={}){
   else if(path.startsWith('/api/check/'))data={state:'error',detail:'Client not running'};
   return {ok,json:async()=>data};
  },setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},console};
- vm.createContext(context);vm.runInContext(fs.readFileSync('static/app.js','utf8'),context);return{get,calls,activations,context};
+ vm.createContext(context);vm.runInContext(fs.readFileSync('app/static/app.js','utf8'),context);return{get,calls,activations,context};
 }
 const flush=async()=>{for(let i=0;i<10;i++)await new Promise(r=>setImmediate(r));};
 (async()=>{
