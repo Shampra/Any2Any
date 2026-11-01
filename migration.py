@@ -25,7 +25,8 @@ import re
 import unicodedata
 from urllib.parse import quote, unquote, urlparse, parse_qs
 
-from api_clients import (APIError, anytype_download, anytype_property_definitions,
+from api_clients import APIError, anytype_download, anytype_property_definitions
+from anytwo_backend import (
                          create_space, create_collection, create_object, list_columns,
                          add_column, set_column_value, set_markdown, append_markdown,
                          attach_file, get_file_info, create_editor_block, add_membership, target_write, local_get, _segment)

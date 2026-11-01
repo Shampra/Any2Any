@@ -34,7 +34,7 @@ function setApiAvailability(ready, checking=false){
   hidden('mini-warning',ready||checking);
   label('connection-text',checking?'Vérification des API':ready?'APIs connectées':'⚠ API indisponibles');
   hidden('offline-notice',ready||checking);
-  const workspace=document.querySelector('.workspace');
+  const workspace=document.querySelector('#anytype-content .workspace');
   workspace.inert=!ready;
   workspace.classList.toggle('connection-unavailable',!ready);
   $('source-space').disabled=!ready;
@@ -43,6 +43,11 @@ function setApiAvailability(ready, checking=false){
   $('test-btn').disabled=!ready || !S.selection.kind || S.importRunning;
 }
 async function runChecks(){
+  if(S.config.source_kind==='notion'){
+    hidden('connection-overlay',true);hidden('anytype-content',true);hidden('notion-workspace',false);
+    S.apiReady=false;await window.NotionSource.activate(S.config);return;
+  }
+  window.NotionSource.closeSettings();window.NotionSource.closeLoading();hidden('anytype-content',false);hidden('notion-workspace',true);
   if(S.connecting) return;
   S.connecting=true;
   setApiAvailability(false,true);
@@ -101,6 +106,8 @@ async function runChecks(){
 }
 async function loadConfig(){
   let c=await request('/api/config'); S.config=c;
+  $('source-kind').value=c.source_kind||'anytype';
+  label('app-version',c.version?'v'+c.version:'');
   label('demo-badge','Mode démo');hidden('demo-badge',!c.demo);
   $('anytype-port').value=c.anytype_port||31009;
   $('anytwo-port').value=c.anytwo_port||31310;updateImportButton();
@@ -560,6 +567,7 @@ async function simulate(){
 }
 function closeLog(){if(S.importRunning){toast('Import en cours : attendez la fin avant de fermer le journal.');return;}if(S.simulation){S.simulation.abort();S.simulation=null;}hidden('log-overlay',true);}
 function openSettings(){
+  if(S.config.source_kind==='notion'){window.NotionSource.openSettings();return;}
   S.settingsOpen=true;
   hidden('connection-overlay',false);hidden('connect-help',false);
   hidden('anytwo-settings',false);hidden('anytype-settings',false);
@@ -574,6 +582,27 @@ function closeSettings(){
 }
 function openCompatibility(){
   S.lastFocused=document.activeElement;
+  const notion=$('source-kind').value==='notion';
+  const list=$('compat-overlay').querySelector('.compat-list'),intro=$('compat-intro');
+  if(!list.dataset.anytype){list.dataset.anytype=list.innerHTML;intro.dataset.anytype=intro.innerHTML;}
+  if(notion){
+    intro.textContent='Certaines fonctionnalités de Notion ne peuvent pas être reprises à l’identique dans Anytwo. Cette liste n’est pas exhaustive. Le bilan de vérification précise les adaptations des éléments détectés.';
+    list.replaceChildren();
+    const limits=[
+      'Vues : formats graphique, fil d’actualité, carte et chronologie non reproduits ; calendrier à étudier',
+      'Vues : couleurs conditionnelles, sous-éléments et automatisations non reproduits',
+      'Propriétés : formules importées sous forme de résultats figés, sans recalcul',
+      'Propriétés : boutons non reproduits ; texte riche adapté en texte brut ; fichiers et médias conservés sous forme de liens vers les pièces jointes récupérées',
+      'Pages : aperçu visuel des liens, boutons, fil d’Ariane et onglets non reproduits',
+      'Pages : colonnes de blocs au-delà de quatre à adapter',
+      'Pages : dates de rappel non conservées',
+      'Pages : image de couverture adaptée en image dans le contenu',
+      'Pages : couleurs de texte et de fond, ainsi que soulignement non conservés',
+      'Historique : non importé',
+      'Imports à étudier : wikis et calendriers'
+    ];
+    for(const text of limits){const item=document.createElement('li');item.textContent=text;list.append(item);}
+  }else{list.innerHTML=list.dataset.anytype;intro.innerHTML=intro.dataset.anytype;}
   hidden('compat-overlay',false);
   $('close-compat').focus();
 }
@@ -581,8 +610,37 @@ function closeCompatibility(){
   hidden('compat-overlay',true);
   S.lastFocused?.focus();
 }
+async function chooseSource(kind){
+  if(S.importRunning||S.connecting||S.choosingSource){$('source-kind').value=S.config.source_kind;return;}
+  if(!['anytype','notion'].includes(kind))return;
+  const previous=S.config.source_kind;S.choosingSource=true;
+  for(const id of ['choose-anytype','choose-notion'])$(id).disabled=true;
+  label('source-choice-status','Ouverture de la connexion…');
+  try{
+    await post('/api/config',{source_kind:kind});
+    S.inventoryTicket++;S.sourceSpaceId='';S.inventory=null;S.selection={kind:null,collectionId:null,typeKeys:[],ids:[]};
+    S.config.source_kind=kind;$('source-kind').value=kind;hidden('source-overlay',true);
+    await runChecks();
+  }catch(error){$('source-kind').value=previous;label('source-choice-status',error.message);toast(error.message);}
+  finally{S.choosingSource=false;for(const id of ['choose-anytype','choose-notion'])$(id).disabled=false;}
+}
+function sourceWelcome(){
+  hidden('connection-overlay',true);hidden('anytype-content',true);hidden('notion-workspace',true);
+  label('connection-text','Choisir une source');hidden('source-overlay',false);
+  $('choose-'+(S.config.source_kind==='notion'?'notion':'anytype')).focus();
+}
 function bindEvents(){
+  $('source-kind').addEventListener('change',e=>chooseSource(e.target.value));
+  $('choose-anytype').addEventListener('click',()=>chooseSource('anytype'));
+  $('choose-notion').addEventListener('click',()=>chooseSource('notion'));
+  $('source-overlay').addEventListener('keydown',e=>{
+    if(e.key!=='Tab')return;
+    const first=$('choose-anytype'),last=$('choose-notion');
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+  });
   $('compat-details').addEventListener('click',openCompatibility);
+  $('notion-compat-details').addEventListener('click',openCompatibility);
   $('close-compat').addEventListener('click',closeCompatibility);
   $('ack-compat').addEventListener('click',closeCompatibility);
   $('compat-overlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCompatibility();});
@@ -615,7 +673,7 @@ function bindEvents(){
   $('export-report').addEventListener('click',()=>{if(!S.lastReport)return;const blob=new Blob([JSON.stringify(S.lastReport,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bilan-import-anytype-anytwo.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   $('close-log').addEventListener('click',closeLog);$('stop-log').addEventListener('click',closeLog);
 }
-(async function init(){bindEvents();try{await loadConfig();await runChecks();}catch(e){
+(async function init(){bindEvents();try{await loadConfig();if(S.config.choose_source_on_start)sourceWelcome();else await runChecks();}catch(e){
   toast('Initialisation : '+e.message);
   S.checks={anytwo:{state:'error',detail:e.message},anytype:{state:'error',detail:e.message}};
   setApiAvailability(false);

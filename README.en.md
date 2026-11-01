@@ -1,10 +1,8 @@
-# Any2Any — Anytype → Anytwo Migrator
+# Any2Any — Anytype / Notion → Anytwo
 
 **[Français](README.md) · [English](README.en.md)**
 
-**Any2Any** is a migration tool for transferring data from **Anytype** to **Anytwo** through both applications’ local APIs.
-
-It provides a **local web interface** to browse Anytype spaces, select an entire space, a collection, multiple types, or individual objects, and choose where to import them in Anytwo.
+**Any2Any** is a tool for importing **Anytype** or **Notion** into **Anytwo**. Its local web interface lets you choose the source, check access, select content and configure the destination. Both sources reuse the same Anytwo backend. Anytype and Anytwo use local APIs; Notion uses its Internet API.
 
 > [!WARNING]
 > **Experimental tool — Anytwo alpha builds**
@@ -15,36 +13,35 @@ It provides a **local web interface** to browse Anytype spaces, select an entire
 
 ## Features
 
-- **Selective import**: Anytype spaces, collections, types, and objects; optional inclusion of linked objects.
+- **Anytype selection**: spaces, collections, types and objects, with optional linked objects.
+- **Notion selection**: a tree with three selectable levels; selected branches include their deeper descendants. Linked objects outside the tree are optional.
+- **Notion views and properties**: compatible inline and collection views, filters, sorts, grouping, gallery settings, two-way relations and rollups.
 - **Flexible destinations**: use existing Anytwo spaces and collections or create new ones.
 - **Content migration**: pages, properties and relations, formatted text, links, images, and other files, subject to the current converter’s capabilities.
-- **Local processing**: the tool communicates with the APIs exposed by the two applications on your machine; Anytype is accessed read-only.
+- **Read-only sources**: neither Anytype nor Notion is modified. Notion files are downloaded over the Internet without sending the API token to their hosts.
 - **Pre-import simulation**: use **Test** to inspect the planned scope without writing to Anytwo.
 - **Migration report**: imported objects, why they were included, adaptations, unsupported features, and errors, with JSON export.
 - **Multilingual interface**: French, English, and German; your selection is saved in the browser.
 
 ## Getting started
 
-**Requirements:** Python **3.10+**, the **Anytype** and **Anytwo** desktop clients running on the same computer, and authorization to access Anytype’s API.
+**Requirements:** Python **3.10+** and a running **Anytwo** client. For Anytype imports, also open its desktop client and authorize its API. For Notion, provide a connection token with read access to the selected pages; the Notion desktop client is not required. No additional Python libraries are needed.
 
 1. Download and extract the project.
-2. Open Anytype and Anytwo.
-3. On Windows, run `demarrer.bat`; on other systems, run `python server.py` from the project directory.
-4. The interface opens in your browser. Check API connectivity and authorize Anytype when prompted.
-5. Select the source data and the Anytwo destination.
-6. Run **Test**, review the destination, then choose **Import**.
+2. Open Anytwo and, for an Anytype import, Anytype.
+3. Run `demarrer.bat` on Windows, or `python server.py` from the project directory.
+4. Choose **Anytype** or **Notion** in the welcome dialog, then complete the access checks. Saved Notion tokens are checked automatically.
+5. Select your content and destination. Run **Test**, then **Import**.
 
-To preview the interface without opening the applications, start the app normally, let the API checks finish, and close the connection dialog with the × button. The API status stays red and imports are disabled, while the FR/EN/DE language switcher remains available. To explore sample data, run `demo.bat` or `python server.py --demo` (real imports are disabled in demo mode).
+Use `demo.bat` or `python server.py --demo` to explore sample content without real writes. The source selector at the top lets you switch applications later.
 
-The web interface listens on `127.0.0.1` only (using a local port starting at `8765`). API ports and authorization are saved on your computer. The usual Anytwo port is `31310`; the usual Anytype port is `31009`.
+The interface listens on `127.0.0.1`, starting at port `8766`. On Windows, settings are stored in `%APPDATA%/any2any`; remembered credentials use Windows DPAPI. The first launch can reuse saved development credentials without changing the old profiles. Typical destination/source API ports are `31310` for Anytwo and `31009` for Anytype.
 
 ## Known limitations
 
-The applications do not always use the same data models. Some information may be simplified, transformed, or lost: **types, templates, global or local properties, dynamic views and queries, advanced filters, embedded collection views, tables of contents, discussions, rich bookmarks, and presentation settings**. This is not an exhaustive list.
+The applications have different data models. Formula snapshots, buttons, text/background colors, reminders, history and some view or block formats may require adaptation or may be omitted. The app shows source-specific limitations and each report lists detected changes. See [Notion import details (French)](docs/NOTION-IMPORT.fr.md).
 
-Embeds, complex layouts, and some file formats may not be reconstructed as native Anytwo blocks, even where the Anytwo application supports them through its interface. Migration reports describe detected adaptations, but **cannot by themselves guarantee that every item was transferred faithfully**.
-
-**Simple import** creates new objects on every run. **Synchronization**, automatic resume, deduplication, and rollback are **not available yet**.
+Simple imports create new copies on every run, so restarting may create duplicates. Interrupted Notion reads can be reused in memory for 30 minutes; this does not automatically resume writes or synchronize data. There is no global rollback.
 
 ## About the project
 
