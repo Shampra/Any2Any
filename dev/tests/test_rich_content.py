@@ -23,6 +23,20 @@ class RichContentTests(unittest.TestCase):
             'Extension':'xlsx'},'property_internal_keys':{'Nom du fichier':'fileName',
             'Extension':'fileExt'}})[0],'nextflix_titles.xlsx')
 
+    def test_pdf_link_outside_selection_is_imported_as_an_attachment(self):
+        source = files_fixture.FileSource({'pdf-id':{'kind':'fileObject',
+            'properties':{'fileName':'Vocabulaire.pdf','mimeType':'application/pdf'}},
+            'page-id':{'type':'page'}})
+        engine = files_fixture.RegressionV08().engine(source)
+        blocks = [{'type':'link','object_id':'pdf-id'},{'type':'link','object_id':'page-id'}]
+        engine.resolve_file_links(blocks)
+        with patch('migration.anytype_download',return_value=(b'%PDF-test','application/pdf')), \
+             patch('migration.attach_file',return_value='uploaded'):
+            result, issues = self.render(blocks[:1],True,lambda *args:engine.add_file('page-id',*args))
+        self.assertIn('[Vocabulaire.pdf](any://f/space-dest/uploaded)',result)
+        self.assertFalse(issues)
+        self.assertEqual(blocks[1]['type'],'link')
+
     def test_upload_and_document_share_resolved_name(self):
         engine=files_fixture.RegressionV08().engine(files_fixture.FileSource({'fid':{'properties':{'fileName':'nextflix_titles.xlsx'}}}))
         with patch('migration.anytype_download',return_value=(b'xlsx','application/octet-stream')), patch('migration.attach_file',return_value='uploaded') as attach:

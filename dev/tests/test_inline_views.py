@@ -54,6 +54,31 @@ class InlineViewTests(unittest.TestCase):
         self.assertFalse(problems)
         self.assertEqual(self.source.reads['b'],0)
 
+    def test_skips_builtin_recent_query_without_resolving_its_view(self):
+        recent = {'id':'recent-query','name':'Recently edited','type':'query'}
+        homonym = {'id':'homonym','name':'Recently edited','type':'page'}
+        self.inv['all'] += [recent, homonym]
+        query = {'type':'query','blocks':[{'type':'dataview','object_id':'broken-definition','views':[{
+            'filters':[
+                {'property':'last_modified_date','condition':'greater','value':60},
+                {'property':'resolved_layout','condition':'not_in','value':[5]},
+                {'property':'type.uniqueKey','condition':'not_equal','value':'excluded-type'},
+            ],
+            'sorts':[{'property':'last_modified_date','direction':'desc'}],
+        }]}]}
+        resolver = SourceViews(self.source,'src',self.inv)
+        resolver.docs.update({'recent-query':query, 'homonym':{'blocks':[
+            {'type':'dataview','object_id':'recent'}, {'type':'paragraph','text':'Keep this page'},
+        ]}})
+        entries, _, problems = discover_documents(self.source,'src',self.inv,[recent,homonym],{},True,resolver)
+        self.assertEqual(set(entries), {'homonym'})
+        self.assertEqual(problems, [])
+        self.assertEqual(self.source.reads['broken-definition'], 0)
+        self.assertEqual(self.source.reads['recent'], 0)
+        engine = Engine(self.source,object(),self.inv,{'source_space':{'id':'src'}})
+        view = engine.convert_views(resolver.docs['homonym'],'new',self.converter,set(),'homonym')
+        self.assertEqual([b['type'] for b in view['blocks']], ['paragraph'])
+
     def test_type_collection_query_resolves_collections_then_their_documents(self):
         resolver=SourceViews(self.source,'src',self.inv)
         doc={'blocks':[{'type':'dataview','object_id':'type-col'}]}
@@ -166,6 +191,26 @@ class InlineViewTests(unittest.TestCase):
                      {'operator':'or','filters':[]}):
             with self.subTest(node=node),self.assertRaises(UnsupportedView):
                 inline_records(self.converter,{'views':[{'filters':[node]}]},'scope','instance',set())
+
+    def test_anytype_empty_controls_remain_visible_without_filtering_rows(self):
+        self.converter.anytype_controls = True
+        self.converter.bindings['tag'] = [('scope.tag', {'format':'multi_select'},
+                                          {'type':'choice','options':{}})]
+        filters = [
+            {'property':'name','condition':'contains','value':''},
+            {'property':'tag','condition':'in','value':[]},
+        ]
+        view = {'filters':filters}
+        records, failed = inline_records(self.converter, {'views':[view]}, 'scope', 'instance', set())
+        self.assertFalse(failed)
+        query = records[0]['query']
+        self.assertEqual(query['filter'], {'any.collections':'scope'})
+        self.assertEqual(query['anyUi']['filters'][0]['condition'],
+                         {'kind':'text','operator':'contains','value':''})
+        self.assertEqual(query['anyUi']['filters'][1]['condition']['values'], [])
+        filters[0]['value'] = 'A+B'
+        _, query, _ = self.converter.convert(view, {'any.collections':'scope'})
+        self.assertEqual(query['filter']['$and'][1], {'any.name':{'$regex':r'(?i)A\+B'}})
 
     def test_relation_ui_values_are_raw_ids_for_client_uri_encoding(self):
         self.converter.bindings['related']=[('scope.related',{'format':'objects'},

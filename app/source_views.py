@@ -1,8 +1,42 @@
 """Read-only source resolution and traversal for embedded Anytype views."""
 from api_clients import APIError
-from view_conversion import UnsupportedView
+from view_conversion import UnsupportedView, empty_anytype_control
 
 MISSING = object()
+
+RECENT_WIDGET_TARGETS = {'recent', '_recent', '_recently_edited'}
+
+
+def is_recent_widget_block(block):
+    """Recognise the built-in target without relying on a user-visible title."""
+    target = block.get('object_id') or block.get('objectId')
+    return (block.get('type') in ('dataview', 'widget')
+            and isinstance(target, str) and target in RECENT_WIDGET_TARGETS)
+
+
+def is_recent_widget_document(doc, item):
+    """Recognise the exported query behind the default Recently edited widget."""
+    if item['id'] in RECENT_WIDGET_TARGETS:
+        return True
+    if str(item.get('name', '')).strip().casefold() != 'recently edited':
+        return False
+    views = list(doc.get('views') or [])
+    for block in doc.get('blocks') or []:
+        if isinstance(block, dict) and block.get('type') == 'dataview':
+            views.extend(block.get('views') or [])
+    for view in views:
+        if not isinstance(view, dict):
+            continue
+        filters = {(str(f.get('property')), str(f.get('condition'))) for f in view.get('filters') or []
+                   if isinstance(f, dict)}
+        if {('last_modified_date','greater'), ('resolved_layout','not_in'),
+            ('type.uniqueKey','not_equal')} <= filters and any(
+                sort.get('property') == 'last_modified_date' and sort.get('direction') == 'desc'
+                for sort in view.get('sorts') or []
+                if isinstance(sort, dict)
+            ):
+            return True
+    return False
 
 
 def source_value(doc, key, fallback=None):
@@ -33,9 +67,14 @@ def matches_filter(node, doc, item):
     value=source_value(doc,node.get('property'),item)
     other=node.get('value');op=node.get('condition')
     if op=='exists':return value is not MISSING
-    if value is MISSING:return op in ('not_equal','not_in')
+    if value is MISSING:return op in ('not_equal','not_in','not_contains')
     if op=='equal':return value==other
     if op=='not_equal':return value!=other
+    if op in ('contains','not_contains'):
+        if not isinstance(other,str) or not other.strip() or other != other.strip():
+            raise UnsupportedView('Valeur de filtre texte non transposable')
+        found = isinstance(value,str) and other.lower() in value.lower()
+        return found if op=='contains' else not found
     if op in ('in','not_in','all_in'):
         if not isinstance(other,list):raise UnsupportedView('Filtre de liste sans liste')
         values=value if isinstance(value,list) else [value]
@@ -111,7 +150,7 @@ class SourceViews:
                                  'type':detail.get('type') or 'page','raw':detail}
             detail=None
             for view in views:
-                filters=view.get('filters') or []
+                filters=[node for node in view.get('filters') or [] if not empty_anytype_control(node)]
                 if not filters:
                     result.append(oid);break
                 if detail is None:detail=self.document(oid)

@@ -16,7 +16,7 @@ from rich_content import (ImportedFile, inline_html, native_columns, native_togg
 from file_transfer import FileLibrary, strip_import_prefix
 from view_conversion import (choice_options, enrich_descriptor, ViewConverter,
                              create_saved_views, modify_records, UnsupportedView)
-from source_views import SourceViews, source_value, MISSING
+from source_views import SourceViews, source_value, MISSING, is_recent_widget_document, is_recent_widget_block, RECENT_WIDGET_TARGETS
 from inline_views import instance_id, inline_markdown, inline_records, property_names
 import html
 import json
@@ -248,18 +248,23 @@ def discover_documents(source, sid, inv, selected, reasons, follow, view_sources
     all_ids = {item['id'] for item in inv['all']}
     queue = deque(selected)
     docs = {}; entries = {}; problems = []
+    ignored = set(RECENT_WIDGET_TARGETS)
     while queue:
         obj = queue.popleft()
         if is_conversation(obj):
             continue
         oid = obj['id']
-        if oid in entries: continue
+        if oid in entries or oid in ignored: continue
         if len(entries) >= MAX_OBJECTS:
             raise APIError(f'Limite de sécurité : plus de {MAX_OBJECTS} objets dans le périmètre. Aucune écriture effectuée.')
         entries[oid] = obj
         try:
             doc = view_sources.document(oid)
             if not isinstance(doc, dict): raise APIError('Réponse objet non JSON.')
+            if is_recent_widget_document(doc,obj):
+                ignored.add(oid)
+                entries.pop(oid)
+                continue
             if is_conversation(doc):
                 problems.append((oid, 'Chat / discussion ignoré (non importable)'))
                 continue
@@ -271,6 +276,8 @@ def discover_documents(source, sid, inv, selected, reasons, follow, view_sources
         for block in doc.get('blocks') or []:
             if not isinstance(block,dict) or block.get('type')!='dataview':continue
             if block.get('object_id'):structural.add(block['object_id'])
+            if is_recent_widget_block(block):
+                continue
             try:
                 # Resolve even without follow, so conversion later uses the same
                 # source definition. Only follow expands the import perimeter.
@@ -285,7 +292,7 @@ def discover_documents(source, sid, inv, selected, reasons, follow, view_sources
                 problems.append((oid,'Documents de vue intégrée non résolus : '+str(exc)))
         links = identify_links(doc, all_ids, oid)-structural
         for ref in sorted(links):
-            if ref in entries or any(x['id']==ref for x in queue): continue
+            if ref in ignored or ref in entries or any(x['id']==ref for x in queue): continue
             if ref not in indexed:
                 problems.append((oid, f'Référence vers une collection / un objet non migrable : {ref}'))
             elif is_conversation(indexed[ref]):
@@ -450,11 +457,7 @@ def _table_cell_html(cell, issues, mapping=None, sid=None, names=None, files_all
 
 
 def rich_table(block, issues, mapping=None, sid=None, names=None, files_allowed=False, file_import=None):
-    """Best-effort AnyBlock v2 table: headings, rows, cell text and column sizes.
-
-    HTML is an intermediate representation, *not* a guarantee that Anytwo's
-    Markdown parser supports native rich tables. User must verify target UI.
-    """
+    """Encode the table for Anytwo, reporting specific cell conversion losses."""
     rows=block.get('rows') or []
     if not isinstance(rows,list) or not rows:return None
     columns=block.get('columns') or []
@@ -518,7 +521,7 @@ def bookmark_block_title(block, names, fallback):
     return fallback
 
 
-def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, rich_mode=True, native_embeds=None):
+def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, rich_mode=True, native_embeds=None, keep_underline=False):
     blocks = doc.get('blocks') or []
     if not isinstance(blocks, list):
         issues.add('Structure de blocs inconnue')
@@ -534,10 +537,15 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
         except (TypeError, ValueError): depth = 0
         pad = '  '*depth
         txt = replace_inline_links(block.get('text') or '', mapping, sid, names, issues)
+        if typ in TEXT or typ == 'checkbox' or typ.startswith('toggle'):
+            cleaned = remove_unsupported_inline(txt, keep_underline)
+            if cleaned != txt:
+                issues.add('Soulignement/exposant/indice non pris en charge par l’import Markdown Anytwo : texte conservé sans balises')
+            txt = cleaned
         if block.get('background_color') or block.get('backgroundColor'):
             issues.add("Couleur d’arrière-plan de bloc")
         def render_children(children):
-            return render_blocks({'blocks':children},mapping,sid,names,files_allowed,file_import,issues,rich_mode=rich_mode,native_embeds=native_embeds)
+            return render_blocks({'blocks':children},mapping,sid,names,files_allowed,file_import,issues,rich_mode=rich_mode,native_embeds=native_embeds,keep_underline=keep_underline)
         if typ in ('toggle','toggle_heading_1','toggle_heading_2','toggle_heading_3') and rich_mode:
             end=descendant_end(blocks,i-1)
             lines.append(native_toggle(block,rebase(blocks[i:end],depth+1),render_children,txt))
@@ -549,10 +557,6 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
             else:
                 issues.add('Disposition en colonnes non reconstructible : contenu conservé en séquence')
         elif typ in TEXT:
-            cleaned=remove_unsupported_inline(txt)
-            if cleaned!=txt:
-                issues.add('Soulignement/exposant/indice non pris en charge par l’import Markdown Anytwo : texte conservé sans balises')
-                txt=cleaned
             prefix = TEXT[typ]
             if typ == 'quote': prefix = '> '
             # A blank source paragraph is intentional spacing; Markdown
@@ -610,15 +614,19 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
             url = bookmark_block_url(block) or ''
             title=bookmark_block_title(block,names,url)
             lines.append(titled_link(title,url) if url else '> **Attention : bookmark sans URL exploitable.**')
-        elif typ == 'table_of_contents':
+        elif typ in ('table_of_contents','tableOfContents'):
             issues.add('Table des matières non reproduite')
             lines.append('> **Attention : table des matières dynamique non importée.**')
         elif typ == 'property':
             issues.add('Propriété intégrée à la page non reproduite')
-            field = block.get('property') or '(inconnue)'
+            field = block.get('key') or block.get('property') or '(inconnue)'
             value = (doc.get('properties') or {}).get(field, '')
             lines.append(f'> **Attention : propriété intégrée non reproduite : {field}.**' +
                          (f' Valeur source : {json.dumps(value, ensure_ascii=False)}' if value else ''))
+        elif typ == 'any2any_property':
+            lines.append(block['markdown'])
+        elif typ == 'any2any_toc':
+            lines.append(block['marker'])
         elif typ == 'any2any_inline_view':
             lines.append(block['markdown'])
             if block.get('failed'):lines.append('> **Attention : certaines vues secondaires n’ont pas été converties.**')
@@ -633,7 +641,6 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
             markup=rich_table(block,issues,mapping,sid,names,files_allowed,file_import) if rich_mode else None
             if markup:
                 lines.append(markup)
-                issues.add('Tableau enrichi préservé en HTML (rendu à vérifier dans Anytwo)')
             else:
                 # Rebuild what we can in Markdown without discarding text.
                 rows=block.get('rows') or []
@@ -803,6 +810,7 @@ class Engine:
         self.col_cache={}; self.prop_cache={}; self.upload_cache={}; self.mapping={}; self.property_owner={}
         self.source_file_metadata_cache={}
         self.source_file_dimensions={}
+        self.link_file_types={}
         self.file_libraries={}
         self.existing_collections=set()
         self.memberships={}
@@ -812,6 +820,7 @@ class Engine:
         self.collection_documents={}
         self.view_reports=[]
         self.view_hosts={}
+        self.widget_warnings = set()
         self.type_defs={}; self.collection_reports=[]; self.results={}; self.report={'status':'running','objects':[],'errors':[], 'warnings':{},'created':{}}
         self.names={obj['id']:obj['name'] for obj in inventory['all']}
 
@@ -819,9 +828,10 @@ class Engine:
         counters=Counter(r['status'] for r in self.results.values())
         issues=Counter(issue for r in self.results.values() for issue in r['issues'])
         issues.update(issue for cr in self.collection_reports for issue in cr['issues'])
+        issues.update(self.widget_warnings)
         if error:
             self.report['errors'].append(str(error))
-        self.report['status']=status or ('done' if not counters['error'] and not counters['partial'] else 'partial')
+        self.report['status']=status or ('done' if not counters['error'] and not counters['partial'] and not self.widget_warnings else 'partial')
         self.report['objects']=[{'name':r['name'],'source_id':oid,'target_id':r['target_id'],
                                  'status':r['status'],'reason':r['reason'],
                                  'issues':sorted(r['issues']),'errors':r['errors']}
@@ -838,6 +848,58 @@ class Engine:
     def emit(self, event, **data): return {'event':event, **data}
 
     def warn(self, oid, message): self.results[oid]['issues'].add(message)
+
+    def import_widgets(self, entries, docs):
+        from anytwo_backend import add_overview_widgets
+
+        collections = {key.removeprefix('collection:'): cid for key, cid in self.col_cache.items()
+                       if key.startswith('collection:')}
+        pages = {}
+        for source_id, item in entries.items():
+            target = self.mapping.get(source_id)
+            doc = docs.get(source_id, {})
+            if (target and not is_conversation(item) and not is_bookmark(item, doc)
+                    and item.get('type') not in (FILE_TYPES | {'set', 'query', 'object_type', 'template'})
+                    and item.get('layout') not in FILE_TYPES
+                    and 'query_source' not in doc and doc.get('kind') not in ('object_type', 'template')):
+                pages[source_id] = target
+        if not pages and not collections:
+            return []
+        read_widgets = getattr(self.source, 'widgets', None)
+        if read_widgets is None:
+            return []
+        try:
+            source_widgets = read_widgets(self.sid)
+        except APIError as exc:
+            self.widget_warnings.add('Widgets Anytype non lus : '+str(exc))
+            return []
+
+        widgets = {}
+        for row in source_widgets:
+            source_id = row.get('target')
+            if not isinstance(source_id, str) or not source_id or source_id.startswith('_'):
+                continue
+            if row.get('kind') == 'section' or row.get('type') == 'section' or row.get('layout') == 'section':
+                continue
+            if source_id in collections:
+                kind, target = 'collection', collections[source_id]
+            elif source_id in pages:
+                kind, target = 'object', pages[source_id]
+            else:
+                continue
+            # Shared widgets precede personal ones. Keep the first occurrence
+            # when both scopes pin the same target to the shared Overview.
+            widgets.setdefault((kind, target), {
+                'source_id': source_id, 'target_id': target, 'kind': kind,
+                'layout': 'link' if row.get('layout') == 'link' else 'views',
+            })
+        if not widgets:
+            return []
+        try:
+            return add_overview_widgets(self.target, self.dest_sid, list(widgets.values()))
+        except (APIError, KeyError, TypeError, ValueError) as exc:
+            self.widget_warnings.add('Widgets Overview non confirmés : '+str(exc))
+            return []
 
     def col(self, key, name, existing=None):
         if key in self.col_cache: return self.col_cache[key]
@@ -1008,15 +1070,56 @@ class Engine:
             for oid,value in found:
                 _,_,value=column_shape(fmt,value,issues)
                 set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,pid,value)
-        return scope,ViewConverter(bindings,converter.mapping,converter.type_collections,converter.metadata)
+        return scope,ViewConverter(bindings,converter.mapping,converter.type_collections,converter.metadata,anytype_controls=converter.anytype_controls)
 
+
+    def convert_property_blocks(self, doc, source_id, issues):
+        if getattr(self, 'destination_version', ()) < (0, 4, 1):
+            return
+        from inline_views import instance_id
+        from notion_native import envelope
+        owners = self.memberships.get(source_id, set())
+        system = {'creator':('author','Created by'), 'createdby':('author','Created by'),
+                  'createddate':('createdAt','Creation date'), 'creationdate':('createdAt','Creation date'),
+                  'lastmodifieddate':('modifiedAt','Last modified date'),
+                  'lastmodifiedby':('modifiedBy','Last modified by')}
+        for index, block in enumerate(doc.get('blocks') or []):
+            if not isinstance(block, dict) or block.get('type') != 'property':
+                continue
+            key = str(block.get('key') or block.get('property') or '')
+            aliases = doc.get('property_internal_keys') or {}
+            internal = str(aliases.get(key) or key)
+            candidates = {}
+            for alias in (key, internal):
+                for path, spec, _ in self.property_bindings.get(alias.casefold(), []):
+                    owner, prop = path.split('.', 1)
+                    if owner in owners:
+                        candidates[path] = (owner, prop, spec.get('name') or key)
+            if len(candidates) == 1:
+                owner, prop, label = next(iter(candidates.values()))
+            elif not candidates and (builtin := system.get(re.sub(r'[\s_-]+', '', internal.casefold()))):
+                prop, label = builtin
+                owner = 'any'
+                issues.add('Propriété système intégrée « '+label+' » : valeur calculée par Anytwo sur la page importée')
+            else:
+                continue
+            oid = self.mapping[source_id]
+            identity = instance_id(oid,'property:'+str(block.get('id') or index))
+            block['markdown'] = envelope('property',identity,
+                {'space':self.dest_sid,'object':oid,'owner':owner,'property':prop},
+                re.sub(r'([\\`*_\[\]<>#])',r'\\\1',str(label)).replace('\n',' '))
+            block['type'] = 'any2any_property'
 
     def convert_views(self, doc, target_id, converter, issues, source_id):
         doc=deepcopy(doc)
-        blocks=doc.get('blocks') or []
+        original_blocks=doc.get('blocks') or []
+        blocks=[b for b in original_blocks if not isinstance(b,dict) or not is_recent_widget_block(b)]
         if doc.get('views') and not any(b.get('type')=='dataview' for b in blocks if isinstance(b,dict)):
-            blocks=blocks+[{'type':'dataview','views':doc['views'],
-                           'is_collection':doc.get('type_internal_key')=='collection' or doc.get('type')=='collection'}]
+            if len(blocks)==len(original_blocks):
+                blocks=blocks+[{'type':'dataview','views':doc['views'],
+                               'is_collection':doc.get('type_internal_key')=='collection' or doc.get('type')=='collection'}]
+            else:
+                doc.pop('views',None)
         for block_index,block in enumerate(blocks):
             if not isinstance(block,dict) or block.get('type')!='dataview': continue
             original=deepcopy(block)
@@ -1028,7 +1131,8 @@ class Engine:
                 table_key=instance_id(target_id,str(block.get('id') or block_index))
                 if target_id in self.mapping.values():
                     scope,scoped_converter=self.inline_scope(source_id,block,source_ids,converter,issues)
-                    records,failed=inline_records(scoped_converter,block,scope,table_key,issues)
+                    records,failed=inline_records(scoped_converter,block,scope,table_key,issues,
+                        native_layouts=getattr(self, 'destination_version', ()) >= (0, 3, 6))
                     view_id=self.view_hosts.get(target_id)
                     if view_id is None:
                         root=target_write(self.target,f'/spaces/{_segment(self.dest_sid)}/objects',{
@@ -1040,7 +1144,7 @@ class Engine:
                     modify_records(self.target,self.dest_sid,view_id,'views',records)
                     self.view_hosts[target_id]=view_id
                     markup=inline_markdown(self.dest_sid,target_id,table_key,
-                        block.get('name') or views[0].get('name') or 'Vue Anytype',scope)
+                        block.get('name') or views[0].get('name') or 'Vue Anytype',scope,layout=records[0]['layout'])
                     block.clear();block.update({'type':'any2any_inline_view','markdown':markup,
                         'failed':failed,'indent':original.get('indent',0)})
                 else:
@@ -1112,7 +1216,49 @@ class Engine:
                 pass
         return uri
 
+    def resolve_file_links(self, blocks):
+        """Anytype may represent a file card as a link to its file object."""
+        for block in blocks:
+            if isinstance(block, list):
+                self.resolve_file_links(block)
+                continue
+            if not isinstance(block, dict):
+                continue
+            if block.get('type') == 'link':
+                fid = block.get('object_id') or block.get('objectId')
+                if isinstance(fid, str) and fid:
+                    if fid not in self.link_file_types:
+                        document = self.source_views.docs.get(fid)
+                        if document is None and fid not in self.names:
+                            try:
+                                document = self.source_views.document(fid)
+                            except (APIError, ValueError):
+                                pass
+                        known = self.source_views.items.get(fid, {})
+                        document = document or {}
+                        kinds = [source.get(key) for source in (document, known, known.get('raw') or {})
+                                 for key in ('kind', 'type', 'type_internal_key', 'layout')]
+                        kinds = [re.sub(r'[^a-z]', '', value.casefold()) for value in kinds if isinstance(value, str)]
+                        kind = next((value for value in kinds if value in FILE_TYPES | {'fileobject'}), None)
+                        self.link_file_types[fid] = 'file' if kind == 'fileobject' else kind
+                        if kind and document:
+                            self.source_file_metadata_cache[fid] = file_metadata(document)
+                            props = document.get('properties') or {}
+                            if isinstance(props, dict):
+                                self.source_file_dimensions[fid] = (props.get('width_in_pixels'), props.get('height_in_pixels'))
+                    kind = self.link_file_types[fid]
+                    if kind:
+                        name, mime = self.source_file_metadata_cache.get(fid, ('', ''))
+                        block.update(type=kind, object_id=fid, style='link',
+                                     name=name or self.names.get(fid) or block.get('name'),
+                                     mime_type=mime or block.get('mime_type'))
+            for children in ('blocks', 'children', 'rows', 'cells'):
+                if isinstance(block.get(children), list):
+                    self.resolve_file_links(block[children])
+
     def run(self):
+        from anytwo_backend import server_version
+        self.destination_version = server_version(self.target)
         plan=self.plan; inv=self.inv
         if plan.get('mode') not in ('simple', None):
             raise APIError('Le mode synchronisation nécessite une gestion des mises à jour : il n’est pas activé dans cette version. Choisissez « Import simple ».')
@@ -1331,7 +1477,7 @@ class Engine:
                     r['errors'].append(f'Propriété « {name} » : {exc}')
         # Third pass: views and page bodies use the complete property/id mapping.
         converter=ViewConverter(self.property_bindings,self.mapping,
-            {k[5:]:v for k,v in self.col_cache.items() if k.startswith('type:')},metadata)
+            {k[5:]:v for k,v in self.col_cache.items() if k.startswith('type:')},metadata,anytype_controls=True)
         for source_id,source_doc in self.collection_documents.items():
             cid=self.col_cache.get('collection:'+source_id)
             issues=set()
@@ -1351,7 +1497,17 @@ class Engine:
             if not r['target_id']: continue
             props=custom_properties(doc,metadata)
             doc=self.convert_views(doc,r['target_id'],converter,r['issues'],oid)
+            self.resolve_file_links(doc.get('blocks') or [])
             issues=r['issues']
+            self.convert_property_blocks(doc,oid,issues)
+            toc_tokens = set()
+            if self.destination_version >= (0, 4, 1):
+                from notion_native import marker, replace_toc_markers
+                for index, block in enumerate(doc.get('blocks') or []):
+                    if isinstance(block, dict) and block.get('type') in ('table_of_contents','tableOfContents'):
+                        token = marker('toc', oid, str(block.get('id') or index))
+                        toc_tokens.add(token)
+                        block.update(type='any2any_toc', marker=token)
             cover=doc.get('cover')
             cover_line=''
             if isinstance(cover,dict) and cover.get('format')=='image' and cover.get('file'):
@@ -1368,7 +1524,10 @@ class Engine:
                 issues.add('Couverture Anytype non reproduite')
             if doc.get('kind') == 'template':
                 issues.add('Template importé comme une page ordinaire')
-            query_missing = ('query_source' in doc or bool(doc.get('views'))) and not any(b.get('type')=='dataview' for b in doc.get('blocks',[]) if isinstance(b,dict))
+            query_missing = ('query_source' in doc or bool(doc.get('views'))) and not any(
+                b.get('type') in ('dataview', 'any2any_inline_view', 'any2any_saved_view')
+                for b in doc.get('blocks', []) if isinstance(b, dict)
+            )
             if query_missing:
                 issues.add('Vues / requêtes dynamiques non reproduites')
                 self.view_reports.append({'source_id':oid,'status':'unsupported','source':deepcopy(doc),'error':'Définition sans bloc de vue exploitable'})
@@ -1388,7 +1547,8 @@ class Engine:
             else:
                 markdown_embeds=[]
                 markdown = render_blocks(doc,self.mapping,self.dest_sid,self.names,bool(plan.get('files')),
-                                         load_file,issues,native_embeds=markdown_embeds)
+                                         load_file,issues,native_embeds=markdown_embeds,
+                                         keep_underline=self.destination_version >= (0, 4, 1))
             # Source file objects may have no editor blocks at all. Keep their
             # actual payload as a downloadable attachment on the target page.
             source_type=(next((x for x in entries.values() if x['id']==oid),{}) .get('type') or '').casefold()
@@ -1442,6 +1602,11 @@ class Engine:
                                          '> **Attention : le contenu original n’a pas pu être transféré. Consultez le rapport de migration.**')
                         except APIError:
                             r['errors'].append('Impossible d’insérer le message de remplacement dans la page.')
+                if toc_tokens:
+                    try:
+                        replace_toc_markers(self.target,self.dest_sid,r['target_id'],toc_tokens,issues)
+                    except APIError as exc:
+                        issues.add('Sommaire non finalisé : '+str(exc))
             r['status'] = 'partial' if r['errors'] or r['issues'] else 'imported'
             output={'name':r['name'],'source_id':oid,'target_id':r['target_id'],
                     'status':r['status'],'reason':r['reason'],
@@ -1471,4 +1636,11 @@ class Engine:
                 r['status']='partial' if r['issues'] else 'imported'
             except (APIError,ValueError,TypeError,KeyError) as exc:r['errors'].append(str(exc))
             yield self.emit('object',**{**r,'issues':sorted(r['issues'])})
+        widgets = self.import_widgets(entries, docs)
+        if widgets:
+            self.report['widgets'] = widgets
+            count = sum(widget['status'] == 'created' for widget in widgets)
+            yield self.emit('message', message=f'Overview Anytwo : {count} widget(s) ajouté(s), {len(widgets)-count} déjà présent(s).')
+        for warning in sorted(self.widget_warnings):
+            yield self.emit('message', message='! '+warning)
         yield self.emit('summary',**self.finish_report())

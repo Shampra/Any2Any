@@ -5,7 +5,7 @@ from notion_icons import content_icon
 from view_conversion import UnsupportedView, ViewConverter
 
 
-def normalise(view,schema,issues=None,*,inline=False):
+def normalise(view,schema,issues=None,*,inline=False,native_inline=False):
     properties=schema.get('properties',{})
     names={unquote(str(p.get('id'))):name for name,p in properties.items()}
     def name(value):
@@ -22,6 +22,15 @@ def normalise(view,schema,issues=None,*,inline=False):
         prop=name(node['property']);typ=next((k for k in node if k not in ('property','type')),None)
         condition=node.get(typ)
         if not isinstance(condition,dict) or len(condition)!=1:raise UnsupportedView('Filtre Notion non reconnu')
+        formula_format = None
+        if typ == 'formula':
+            result_kind, condition = next(iter(condition.items()))
+            typ = {'string':'rich_text','number':'number','checkbox':'checkbox','date':'date'}.get(result_kind)
+            if not typ or not isinstance(condition, dict) or len(condition) != 1:
+                raise UnsupportedView('Filtre sur résultat de formule non transposable')
+            formula_format = 'text' if typ == 'rich_text' else typ
+            if issues is not None:
+                issues.add('Filtre sur formule conservé sur les résultats figés importés')
         op,value=next(iter(condition.items()))
         ops={'equals':'equal','does_not_equal':'not_equal','greater_than':'greater','less_than':'less','greater_than_or_equal_to':'greater_or_equal','less_than_or_equal_to':'less_or_equal','after':'greater','on_or_after':'greater_or_equal'}
         if typ in ('select','multi_select','status','relation'):
@@ -31,10 +40,14 @@ def normalise(view,schema,issues=None,*,inline=False):
         elif typ in ('rich_text','title','url','email','phone_number') and op in ('contains','does_not_contain'):
             if not isinstance(value,str) or not value.strip() or value!=value.strip():raise UnsupportedView('Filtre texte vide ou espaces significatifs non transposables')
             op='notion_contains' if op=='contains' else 'notion_not_contains'
+        elif typ == 'date' and op == 'before' and isinstance(value, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', value):
+            op = 'notion_date_before'
         else:
             op=ops.get(op)
             if op is None:raise UnsupportedView('Condition Notion non transposable exactement')
         result={'property':prop,'condition':op,'value':value}
+        if formula_format:
+            result['formula_format'] = formula_format
         if typ=='date' and ('T' in str(value)):result['include_time']=True
         return result
     config=view.get('configuration') or {}
@@ -44,7 +57,7 @@ def normalise(view,schema,issues=None,*,inline=False):
     if group:
         if not isinstance(group,dict):raise UnsupportedView('Regroupement Notion non reconnu')
         group_prop=name(group.get('property_id') or group.get('property'))
-        if inline:
+        if inline and (not native_inline or kind != 'board'):
             if issues is not None:issues.add('Vue groupée adaptée en liste sans regroupement ; filtres et tris conservés')
             kind='list'
         else:
@@ -71,6 +84,8 @@ def normalise(view,schema,issues=None,*,inline=False):
     opening=config.get('open_pages_in') or view.get('open_pages_in')
     presentation={'openMode':'full-screen' if opening in ('full_page','full-page','full_screen','full-screen') else 'side-peek'}
     if config.get('cover_aspect') in ('contain','cover'):presentation['galleryFitImage']=config['cover_aspect']=='contain'
+    if config.get('card_size') in ('small','medium','large'):
+        presentation['cardSize'] = config['card_size']
     label=view.get('name')
     if not label or label=='Untitled':label={'table':'Tableau','board':'Tableau Kanban','list':'Liste','gallery':'Galerie'}.get(view.get('type'),'Vue Notion')
     return {'id':view.get('id'),'name':label,'type':'kanban' if kind=='board' else kind,
@@ -87,6 +102,16 @@ class NotionViewConverter(ViewConverter):
 
     def predicate(self,node):
         op=node.get('condition')
+        if node.get('formula_format') and any(
+            spec.get('format') != node['formula_format'] for _, spec, _ in self.fields(node.get('property'))
+        ):
+            raise UnsupportedView('Type du résultat de formule différent du filtre source')
+        if op == 'notion_date_before':
+            path, spec, form = self.fields(node.get('property'))[0]
+            if form.get('type') != 'date':
+                raise UnsupportedView('Filtre « avant » sur une date avec heure ou une plage non transposable')
+            date = self.value(node.get('value'), spec, form)
+            return {'$and': [{path:{'$exists':True}}, {path:{'$lt':date}}]}
         if op not in ('notion_contains','notion_not_contains'):return super().predicate(node)
         value=node.get('value')
         if not isinstance(value,str) or not value or value!=value.strip():raise UnsupportedView('Valeur du filtre texte invalide')

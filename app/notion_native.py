@@ -106,6 +106,44 @@ def opening(row):
     except ValueError:return None
 
 
+def replace_toc_markers(api, sid, oid, tokens, issues):
+    """Generate a navigable fallback from the actual destination block IDs."""
+    base = f'/spaces/{_segment(sid)}/objects/{_segment(oid)}/editor/editor_blocks'
+    data = backend.local_get(api.port, f'/v1/spaces/{_segment(sid)}/query', method='POST',
+        body={'objectId':oid,'dataset':'editor_blocks','sort':['nav.pos'],'limit':10000}, timeout=20)
+    if data.get('hasMore') or data.get('has_more'):
+        raise APIError('Lecture des blocs cible incomplète')
+    from notion_content import escape
+    rows = data.get('records', [])
+    # nav.pos is relative to its parent. Traverse the saved tree in page order.
+    children = {}
+    for row in rows:
+        children.setdefault((row.get('nav') or {}).get('parentId') or '', []).append(row)
+    stack = list(reversed(children.get('', [])))
+    links = []
+    while stack:
+        row = stack.pop()
+        if row.get('type') == 'heading' and row.get('text'):
+            uri = f'any://o/{sid}/{oid}/editor_blocks/{row["id"]}'
+            label = escape(row['text'].replace('\n', ' '))
+            links.append(f'[{label}]({uri})')
+        stack.extend(reversed(children.get(row['id'], [])))
+    matched = set()
+    for row in rows:
+        if row.get('text') not in tokens:
+            continue
+        text = 'Sommaire · ' + ' · '.join(links) if links else 'Sommaire : aucun titre accessible.'
+        if len(text.encode('utf-8')) > 60000:
+            text = 'Sommaire : trop de titres pour être regroupés dans un bloc.'
+            issues.add('Sommaire trop long pour être reproduit en un bloc')
+        backend.target_write(api, base+'/blocks/'+quote(row['id'],safe=':'), {'set':{'text':text}}, method='PATCH')
+        matched.add(row['text'])
+    if matched:
+        issues.add('Sommaire importé en liens de blocs ; mise à jour automatique non conservée')
+    if matched != tokens:
+        issues.add('Emplacement de sommaire introuvable après écriture')
+
+
 def finalise(engine):
     """Resolve API-allocated block IDs after all page bodies have been written."""
     rows={};sources={}

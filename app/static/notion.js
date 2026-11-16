@@ -218,6 +218,12 @@ window.NotionSource=(()=>{
       const job=await api('import',request);N.job=job.id;let status;
       do{status=await api('job?id='+encodeURIComponent(job.id));write('notion-analysis-stage',status.message);write('notion-analysis-detail',importDetail(status));if(status.state==='running')await new Promise(resolve=>setTimeout(resolve,600));}while(status.state==='running');
       const root=$('notion-analysis'),report=status.result;
+      if(request.destination.id==='__create__' && report?.target_space){
+        const space={id:report.target_space,name:request.destination.name};
+        N.targetSpaces=[...N.targetSpaces.filter(item=>item.id!==space.id),space];
+        renderTargets(space.id);
+        write('notion-target-status','Espace créé. Il est sélectionné pour le prochain import.');
+      }
       if(report){
         paragraph(root,report.status==='interrupted'?'Import interrompu':report.status==='partial'?'Import terminé avec adaptations':'Import terminé','h3');
         paragraph(root,`${report.totals.total||0} page(s) · ${(report.collections||[]).length} collection(s) · ${new Set((report.files||[]).map(x=>x.target_id)).size} fichier(s).`);
@@ -237,13 +243,43 @@ window.NotionSource=(()=>{
     const target=N.targetSpaces.find(x=>x.id===$('notion-target').value);
     write('notion-destination-summary',create?'Espace à créer : '+($('notion-target-name').value.trim()||'nom à renseigner'):target?'Espace existant : '+target.name:'Vérifiez Anytwo pour choisir ou créer un espace.');
   }
+  function renderTargets(selected){
+    const select=$('notion-target');
+    select.replaceChildren();
+    if(!selected){
+      const placeholder=document.createElement('option');
+      placeholder.value='';
+      placeholder.textContent='Choisir un espace…';
+      select.append(placeholder);
+    }
+    for(const item of [{id:'__create__',name:'Créer un nouvel espace lors de l’import'},...N.targetSpaces]){
+      const option=document.createElement('option');
+      option.value=item.id;
+      option.textContent=item.name;
+      select.append(option);
+    }
+    select.value=selected;
+    select.disabled=false;
+    destinationSummary();
+  }
   async function targets(){await action(async()=>{
     write('notion-target-status','Vérification du client Anytwo local…');if(N.prefetchPromise)await N.prefetchPromise;
     const response=await fetch('/api/check/anytwo',{cache:'no-store'});const check=await response.json();
     if(check.state!=='ok'){N.anytwoReady=false;apiIndicator();write('notion-target-status',check.detail||'Anytwo indisponible.');throw Error(check.detail||'Anytwo indisponible.');}N.anytwoReady=true;apiIndicator();
-    const data=await api('targets');const select=$('notion-target');select.replaceChildren();
-    for(const item of [{id:'__create__',name:'Créer un nouvel espace lors de l’import'},...data.spaces]){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;select.append(option);}
-    N.targetSpaces=data.spaces;N.targetSpacesLoaded=true;const name=N.identity?.workspace_name||'Import Notion';const matches=data.spaces.filter(x=>x.name===name);select.value=matches.length===1?matches[0].id:'__create__';$('notion-target-name').value=name;select.disabled=false;destinationSummary();write('notion-target-status','Anytwo disponible. Choisissez la destination puis testez ou lancez l’import.');
+    const data=await api('targets');
+    const previous=$('notion-target').value;
+    const firstLoad=!N.targetSpacesLoaded;
+    N.targetSpaces=data.spaces;
+    N.targetSpacesLoaded=true;
+    const name=N.identity?.workspace_name||'Import Notion';
+    const matches=data.spaces.filter(space=>space.name===name);
+    if(firstLoad)$('notion-target-name').value=name;
+    const selected=firstLoad
+      ? (matches.length===1 ? matches[0].id : '__create__')
+      : (previous==='__create__'||data.spaces.some(space=>space.id===previous) ? previous : '');
+    renderTargets(selected);
+    write('notion-target-status', selected ? 'Anytwo disponible. Choisissez la destination puis testez ou lancez l’import.'
+      : 'L’espace sélectionné est introuvable. Choisissez une destination.');
   });}
   function bind(){if(N.bound)return;N.bound=true;
     $('notion-cancel').addEventListener('click',async()=>{if(!N.job)return;$('notion-cancel').disabled=true;try{const result=await api('cancel',{id:N.job});write('notion-analysis-stage',result.message);}catch(error){write('notion-analysis-stage',error.message);$('notion-cancel').disabled=false;}});

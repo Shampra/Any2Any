@@ -10,12 +10,12 @@ def escape(value):
     return re.sub(r'([\\`*\[\]<>_~#|+.!-])',r'\\\1',str(value))
 
 
-def mark(value,delimiter):
+def mark(value,delimiter,closing=None):
     # Lexical/CommonMark deliberately rejects '**word **' and '* word*'.
     # Notion often places the separating space inside the annotated run.
     match=re.fullmatch(r'(\s*)(.*?)(\s*)',value,re.S)
     before,body,after=match.groups()
-    return before+delimiter+body+delimiter+after if body else value
+    return before+delimiter+body+(closing or delimiter)+after if body else value
 
 
 def safe_url(value):
@@ -65,7 +65,12 @@ class Content:
                 if ann.get('bold'):value=mark(value,'**')
                 if ann.get('italic'):value=mark(value,'*')
                 if ann.get('strikethrough'):value=mark(value,'~~')
-            if ann.get('underline'):self.issues.add('Soulignement non pris en charge par le pont Markdown Anytwo ; texte conservé sans balises')
+            if ann.get('underline'):
+                if getattr(self.e, 'destination_version', ()) >= (0, 4, 1):
+                    if not ann.get('code'):
+                        value = mark(value, '<u>', '</u>')
+                else:
+                    self.issues.add('Soulignement non pris en charge par le pont Markdown Anytwo ; texte conservé sans balises')
             if ann.get('color') not in (None,'default'):self.issues.add('Couleur de texte/fond non reproduite')
             if url:
                 target=self.link(url)
@@ -123,8 +128,12 @@ class Content:
             elif typ in ('embed','bookmark','link_preview'):
                 url=data.get('url','');fragment=youtube_markdown(url,block['id'])
                 if not fragment:
-                    target=self.link(url);fragment='['+escape(url)+']('+target+')' if target else escape(url)
+                    target=self.link(url)
+                    label = text(data.get('caption')) or url
+                    fragment='['+escape(label)+']('+target+')' if target else escape(label)
                     if typ=='embed':self.issues.add('Embed fournisseur non pris en charge : conservé comme lien')
+                    if typ in ('bookmark','link_preview') and not (target or '').startswith('any://o/'):
+                        self.issues.add('Aperçu web externe conservé comme lien')
             elif typ=='child_database':fragment=self.e.database_content(self.source_id,block['id'])
             elif typ=='child_page':
                 oid=self.e.mapping.get(block['id']);name=escape(data.get('title') or self.e.names.get(block['id'],'Sous-page'))
