@@ -6,6 +6,7 @@ are archived separately; archiving is never reported as a working conversion.
 from copy import deepcopy
 from datetime import datetime, timezone
 import json
+import re
 
 from anytwo_backend import APIError, target_write, local_get, _segment
 
@@ -69,12 +70,24 @@ def combine(operator, nodes):
     return {operator: nodes}
 
 
+def empty_anytype_control(node):
+    """Empty top-level controls saved by the Anytype filter bar."""
+    if not isinstance(node, dict) or any(key in node for key in ('filters','date_preset','nested_property','include_time')):
+        return False
+    op, value = node.get('condition'), node.get('value')
+    return (op == 'contains' and value == '') or (op == 'in' and value == [])
+
+
 class ViewConverter:
-    def __init__(self, bindings, mapping, type_collections, metadata):
+    def __init__(self, bindings, mapping, type_collections, metadata, *, anytype_controls=False):
         self.bindings = bindings
         self.mapping = mapping
         self.type_collections = type_collections
         self.metadata = metadata
+        self.anytype_controls = anytype_controls
+
+    def inactive_control(self, node):
+        return self.anytype_controls and empty_anytype_control(node)
 
     def fields(self, name):
         if str(name).casefold() == 'name':
@@ -135,7 +148,14 @@ class ViewConverter:
             if condition == 'exists':
                 rule = {'$exists': True}
             elif condition in ('contains', 'not_contains') and spec.get('format') in ('text', 'url', 'email', 'phone'):
-                raise UnsupportedView('Comparaison de texte : collation Anytype non garantie')
+                if not self.anytype_controls:
+                    raise UnsupportedView('Comparaison de texte : collation Anytype non garantie')
+                value = self.value(node.get('value'), spec, form)
+                if not isinstance(value, str) or not value.strip() or value != value.strip():
+                    raise UnsupportedView('Valeur de filtre texte non transposable')
+                literal = re.sub(r'([.*+?^${}()|\[\]\\])', r'\\\1', value)
+                regex = {'$regex': '(?i)' + literal}
+                rule = {'$not': regex} if condition == 'not_contains' else regex
             elif condition in scalar_ops:
                 if spec.get('format') in ('select', 'multi_select', 'objects', 'files') and condition in ('equal', 'not_equal'):
                     raise UnsupportedView('Égalité de listes Anytype non garantie')
@@ -184,7 +204,7 @@ class ViewConverter:
         if layout is None:
             raise UnsupportedView('Disposition non vérifiée : ' + str(view.get('type')))
         predicates = [source_filter]
-        predicates.extend(self.predicate(f) for f in view.get('filters', []))
+        predicates.extend(self.predicate(f) for f in view.get('filters', []) if not self.inactive_control(f))
         query = {'type': 'plain', 'filter': combine('$and', predicates)}
         sorts = []
         for item in view.get('sorts', []):
@@ -209,12 +229,14 @@ class ViewConverter:
         presentation=view.get('presentation') or {}
         if presentation.get('openMode') in ('side-peek','full-screen'):settings['openMode']=presentation['openMode']
         if isinstance(presentation.get('galleryFitImage'),bool):settings['galleryFitImage']=presentation['galleryFitImage']
+        if presentation.get('cardSize') in ('small','medium','large'):
+            settings['cardSize'] = presentation['cardSize']
         return layout, query, settings
 
 
 def collection_presentation(converter, view, scope, query, settings, issues):
     """Shared collection-view settings used by the native listing client."""
-    from inline_views import ui_clause, ui_field
+    from inline_views import ui_clauses, ui_field
     visible=[];order=[];hidden=[]
     for column in view.get('columns',[]):
         name=column.get('property')
@@ -236,7 +258,7 @@ def collection_presentation(converter, view, scope, query, settings, issues):
         settings.update(visible=list(dict.fromkeys(visible)),order=order,
                         hidden=[field for field in order if field not in visible])
     query['anyUi']={'version':1,
-        'filters':[ui_clause(converter,n,'filter-'+str(i)) for i,n in enumerate(view.get('filters',[]))],
+        'filters':ui_clauses(converter,view.get('filters',[]),'filter-',issues),
         'sort':[{'propertyId':ui_field(converter,n['property'])[0],'dir':n.get('direction','asc')}
                 for n in view.get('sorts',[])]}
     group=view.get('group_settings')

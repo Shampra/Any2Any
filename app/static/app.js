@@ -591,18 +591,32 @@ function openCompatibility(){
     const limits=[
       'Vues : formats graphique, fil d’actualité, carte et chronologie non reproduits ; calendrier à étudier',
       'Vues : couleurs conditionnelles, sous-éléments et automatisations non reproduits',
+      'Les vues intégrées ne peuvent pas rester dans des colonnes de blocs',
+      'Vues : certains regroupements et filtres avancés ne sont pas transposables',
       'Propriétés : formules importées sous forme de résultats figés, sans recalcul',
       'Propriétés : boutons non reproduits ; texte riche adapté en texte brut ; fichiers et médias conservés sous forme de liens vers les pièces jointes récupérées',
-      'Pages : aperçu visuel des liens, boutons, fil d’Ariane et onglets non reproduits',
+      'Propriétés : certains fuseaux horaires de plages de dates ne sont pas transposables',
+      'Pages : aperçus web externes conservés comme liens ; boutons, fil d’Ariane et onglets non reproduits',
+      'Pages : sommaire statique avec liens vers les titres',
       'Pages : colonnes de blocs au-delà de quatre à adapter',
       'Pages : dates de rappel non conservées',
       'Pages : image de couverture adaptée en image dans le contenu',
-      'Pages : couleurs de texte et de fond, ainsi que soulignement non conservés',
+      'Pages : couleurs de texte et de fond non conservées ; soulignement selon la version Anytwo',
       'Historique : non importé',
       'Imports à étudier : wikis et calendriers'
     ];
     for(const text of limits){const item=document.createElement('li');item.textContent=text;list.append(item);}
-  }else{list.innerHTML=list.dataset.anytype;intro.innerHTML=intro.dataset.anytype;}
+  }else{
+    list.innerHTML=list.dataset.anytype;intro.innerHTML=intro.dataset.anytype;
+    for(const text of [
+      'Une vue importée depuis Anytype ne peut être basée que sur une collection Anytwo',
+      'Les vues intégrées ne peuvent pas rester dans des colonnes de blocs',
+      'Les propriétés système intégrées affichent la valeur Anytwo, par exemple le créateur de la page importée',
+      'Le soulignement dépend de la version Anytwo'
+    ]){
+      const item=document.createElement('li');item.textContent=text;list.append(item);
+    }
+  }
   hidden('compat-overlay',false);
   $('close-compat').focus();
 }

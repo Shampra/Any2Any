@@ -18,6 +18,7 @@ Une **interface web locale** permet de choisir la source au démarrage, de véri
 - **Sélection Anytype** : espaces, collections, types et objets ; ajout facultatif des éléments liés.
 - **Sélection Notion** : pages et bases dans une arborescence sélectionnable sur trois niveaux ; les descendants d’un élément coché sont aussi importés. L’option des éléments liés concerne ceux hors de cette arborescence.
 - **Vues Notion** : vues inline et vues de collections, filtres, tris, regroupements compatibles et réglages de galerie. Relations bidirectionnelles et rollups compatibles sont configurés dans Anytwo.
+- **Widgets Anytype** : les raccourcis vers les pages et collections importées sont repris dans l’Overview, avec leur ordre et les modes Link ou Views.
 - **Destination Anytwo** : espace existant ou nouvel espace. Pour Anytype, une collection existante peut aussi être choisie lorsque ce mode est proposé. Pour Notion, chaque source de données importée crée sa collection/supertag et ses propriétés ; les schémas ne sont pas fusionnés avec une collection existante.
 - **Import de contenu** : pages, propriétés et relations, textes mis en forme, liens, images et autres fichiers, dans la limite des capacités de conversion actuelles.
 - **Archives des chats Anytype (option)** : chats exclus par défaut ; une page d’archive par chat de l’espace source, avec auteurs, dates, réponses, réactions et pièces jointes selon l’option fichiers.
@@ -58,6 +59,8 @@ L’interface écoute uniquement sur `127.0.0.1` (port local à partir de `8766`
 ## Limitations connues
 
 Les applications ont des modèles différents. Les formules Notion deviennent des résultats figés. Les boutons, couleurs de texte/fond, rappels, historique et certains formats de vues ou de blocs peuvent être adaptés ou non repris. Les graphiques Notion ne sont pas importés ; certains regroupements de vues inline sont adaptés en listes. Les vues de collection compatibles conservent leurs regroupements, leurs filtres et leur tri. Les galeries reprennent **Fit image**, et l’ouverture se fait en **side peek**, sauf indication explicite de pleine page fournie par la source. Les limites affichées dans l’application sont propres à la source choisie ; les bilans précisent les pertes détectées. Consultez aussi [le fonctionnement de l’import Notion](docs/NOTION-IMPORT.fr.md).
+
+Les vues intégrées importées depuis Anytype doivent s’appuyer sur une collection Anytwo. Elles ne restent pas dans des colonnes de blocs. Certains filtres dynamiques et restrictions de relation ne sont pas transposables. Les widgets système Anytype sont ignorés et la configuration de la barre latérale Notion n’est pas accessible via son API publique. Les sommaires importés sont statiques. Le soulignement et certaines présentations de vues dépendent de la version d’Anytwo.
 
 L’import simple crée de nouvelles copies à chaque lancement. Une relance peut donc créer des doublons. Les lectures Notion interrompues peuvent être réutilisées en mémoire pendant 30 minutes ; cela ne reprend pas automatiquement les écritures et ne constitue pas une synchronisation. Il n’y a pas d’annulation globale.
 

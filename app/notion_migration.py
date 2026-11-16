@@ -89,6 +89,7 @@ class Engine:
         self.pages=self.selection['pages'];self.schemas=self.selection['schemas'];self.blocks={};self.views={};self.databases={}
         self.mapping={};self.collections={};self.props={};self.names={};self.view_hosts={};self.uploads={};self.rollups=set()
         self.metrics=lambda **values:None;self.content_plans={};self.synced_sources={};self.collection_handles={}
+        self.saved_collections = set()
         self.report={'id':str(uuid.uuid4()),'source':'notion','started_at':datetime.now(timezone.utc).isoformat(),
                      'status':'running','objects':[],'collections':[],'views':[],'errors':[],'warnings':list(selection.get('warnings',[])),
                      'options':self.options,'target_space':None,'mapping':{},'totals':{}}
@@ -241,8 +242,13 @@ class Engine:
         elif typ=='number':kind='number';form=number_descriptor(prop)
         elif typ=='checkbox':kind='boolean';form={'type':'checkbox'}
         elif typ in ('date','created_time','last_edited_time'):
-            kind='datetime';has_time=typ!='date' or any('T' in str((p.get('properties',{}).get(name,{}).get('date') or {}).get('start','')) for p in self.pages.values())
+            dates = [(page.get('properties', {}).get(name, {}).get('date') or {})
+                     for page in self.pages.values()
+                     if page.get('parent', {}).get('data_source_id') == sid]
+            kind='datetime';has_time=typ!='date' or any('T' in str(date.get('start','')) for date in dates)
             form={'type':'datetime' if has_time else 'date'}
+            if typ == 'date' and getattr(self, 'destination_version', ()) >= (0, 3, 6) and any(date.get('end') for date in dates):
+                kind, form = 'object', {'type': 'period'}
         elif typ in ('select','multi_select','status'):
             options={}
             for index,opt in enumerate((prop.get(typ) or {}).get('options',[])):
@@ -375,6 +381,29 @@ class Engine:
             return [options[x['name']] for x in items]
         if typ=='date':
             if not value:return None
+            if form.get('type') == 'period':
+                period = {}
+                for source_key, target_key in (('start', 'from'), ('end', 'to')):
+                    raw = value.get(source_key)
+                    if not raw:
+                        continue
+                    try:
+                        instant = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+                    except (ValueError, AttributeError):
+                        issues.add('Date de plage non reconnue : valeur conservée dans le rapport')
+                        return None
+                    if instant.tzinfo is None:
+                        if len(raw) != 10 and value.get('time_zone'):
+                            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+                            try:
+                                instant = instant.replace(tzinfo=ZoneInfo(value['time_zone']))
+                            except ZoneInfoNotFoundError:
+                                issues.add('Fuseau de plage indisponible : valeur conservée dans le rapport')
+                                return None
+                        else:
+                            instant = instant.replace(tzinfo=timezone.utc)
+                    period[target_key] = {'$date': instant.astimezone(timezone.utc).isoformat().replace('+00:00','Z')}
+                return period or None
             if value.get('end') or value.get('time_zone'):issues.add('Intervalle/fuseau de date archivé dans le rapport ; seule la date de début est native')
             start=value['start'];return {'$date':start+'T00:00:00Z' if len(start)==10 else start}
         if typ in ('created_time','last_edited_time'):return {'$date':value} if value else None
@@ -455,7 +484,22 @@ class Engine:
             self.check();instance=instance_id(self.mapping[oid],did+sid);issues=self.issues(oid)
             try:
                 block=self.view_block(sid,issues,did=did,inline=True)
-                records,failed=inline_records(converter(self,sid),block,cid,instance,issues)
+                owned = self.schemas[sid].get('parent', {}).get('database_id') == did
+                if owned and db.get('is_inline') is True and getattr(self, 'destination_version', ()) >= (0, 4, 0):
+                    try:
+                        saved_block = self.save_collection_views(sid, issues)
+                    except UnsupportedView as exc:
+                        issues.add('Collection intégrée adaptée en vue en ligne : '+str(exc))
+                    else:
+                        from notion_native import envelope
+                        layout = converter(self,sid).convert(saved_block['views'][0], {'any.collections':cid})[0]
+                        label = title(db)
+                        body = '['+escape(label)+'](any://o/'+self.sid+'/'+cid+')'
+                        fragments.append(envelope('collection-view', instance, {
+                            'space':self.sid,'collection':cid,'view':'default','layout':layout}, body))
+                        continue
+                records,failed=inline_records(converter(self,sid),block,cid,instance,issues,
+                    native_layouts=getattr(self, 'destination_version', ()) >= (0, 3, 6))
                 root=self.view_hosts.get(oid)
                 if not root:
                     result=backend.target_write(self.target,f'/spaces/{_segment(self.sid)}/objects',{'type':'dataview','initialProperties':{'dataview':{'host':self.mapping[oid]}}})
@@ -465,7 +509,7 @@ class Engine:
                 label=title(db) if title(db) not in ('Untitled','(Sans titre)') else title(self.schemas[sid])
                 modify_records(self.target,self.sid,root,'dataviews',[{'id':instance,'name':label,'pos':'a'+instance}])
                 modify_records(self.target,self.sid,root,'views',records)
-                fragments.append(inline_markdown(self.sid,self.mapping[oid],instance,label,cid))
+                fragments.append(inline_markdown(self.sid,self.mapping[oid],instance,label,cid,layout=records[0]['layout']))
                 self.report['views'].append({'source':did,'page':oid,'status':'created','failed':failed,'target_id':root})
                 issues.update('Vue non convertie : '+x for x in failed)
             except (UnsupportedView,APIError) as exc:
@@ -481,7 +525,8 @@ class Engine:
         # The first source view remains first: never silently replace an unsupported active filter.
         for view in source:
             if view.get('data_source_id') and view['data_source_id']!=sid:continue
-            try:views.append(normalise(view,self.schemas[sid],issues,inline=inline))
+            try:views.append(normalise(view,self.schemas[sid],issues,inline=inline,
+                native_inline=getattr(self, 'destination_version', ()) >= (0, 3, 6)))
             except UnsupportedView as exc:
                 issues.add('Vue non convertie : '+str(exc))
                 if inline:views.append({'id':view.get('id'),'name':view.get('name'),'type':'unsupported'})
@@ -490,6 +535,18 @@ class Engine:
             issues.add('Réglages de vues indisponibles : vue de collection sans filtre source')
             views=[{'name':'Données importées','type':'table'}]
         return {'is_collection':True,'views':views}
+
+    def save_collection_views(self, sid, issues):
+        block = self.view_block(sid, issues)
+        if sid in self.saved_collections:
+            return block
+        cid = self.collections[sid]
+        members = [oid for oid, page in self.pages.items() if page.get('parent', {}).get('data_source_id') == sid]
+        root, failed = create_saved_views(self.target, self.sid, cid, block,
+            {'type':'collection','collection_items':members}, [], converter(self,sid), issues, table_key='default')
+        self.saved_collections.add(sid)
+        self.report['views'].append({'source':sid,'target_id':root,'status':'created','failed':failed})
+        return block
 
     def copy_workspace_icon(self):
         url=self.selection.get('workspace_icon')
@@ -504,6 +561,7 @@ class Engine:
         except APIError as exc:self.report['warnings'].append('Image de l’espace non reprise : '+str(exc))
 
     def run(self):
+        self.destination_version = backend.server_version(self.target)
         self.collect();self.check()
         self.report['source_schemas']=deepcopy(self.schemas);self.report['source_views']=deepcopy(self.views)
         for oid,page in self.pages.items():
@@ -568,11 +626,11 @@ class Engine:
             self.results[oid]['status']='partial' if issues or self.results[oid]['errors'] else 'imported';self.checkpoint()
         finalise(self)
         for sid,cid in self.collections.items():
+            if sid in self.saved_collections:
+                continue
             self.check();warnings=set()
             try:
-                block=self.view_block(sid,warnings)
-                root,failed=create_saved_views(self.target,self.sid,cid,block,{'type':'collection','collection_items':[oid for oid,p in self.pages.items() if p.get('parent',{}).get('data_source_id')==sid]},[],converter(self,sid),warnings,table_key='default')
-                self.report['views'].append({'source':sid,'target_id':root,'status':'created','failed':failed})
+                self.save_collection_views(sid,warnings)
             except (UnsupportedView,APIError) as exc:warnings.add('Vue de collection non convertie : '+str(exc))
             self.report['warnings'].extend(sorted(warnings));self.checkpoint()
         self.report['status']='partial' if any(r['status']=='partial' for r in self.results.values()) or self.report['warnings'] else 'done'

@@ -45,6 +45,18 @@ class LinkedViewTests(unittest.TestCase):
             content=e.database_content(ROOT,DB)
         self.assertIn('(any://o/space/collection)',content);self.assertNotIn('inline-view',content)
 
+    def test_owned_inline_source_uses_collection_views(self):
+        e = self.engine()
+        e.destination_version = (0, 4, 1)
+        e.schemas[SOURCE]['parent'] = {'database_id':DB}
+        e.databases[DB]['data_sources'] = [{'id':SOURCE}]
+        with patch('notion_migration.create_saved_views', return_value=('root', [])) as write:
+            content = e.database_content(ROOT, DB)
+            e.save_collection_views(SOURCE, set())
+        self.assertIn('"kind":"collection-view"', content)
+        self.assertIn('"collection":"collection","view":"default","layout":"table"', content)
+        write.assert_called_once()
+
     def test_empty_callout_title_does_not_add_an_empty_paragraph(self):
         e=self.engine();e.blocks['callout']=[{'id':'heading','type':'heading_2','heading_2':{'rich_text':rich('Heading')}}]
         md=Content(e,ROOT).render([{'id':'callout','type':'callout','has_children':True,'callout':{'rich_text':[],'icon':{'type':'icon','icon':{'name':'pot'}}}}])
@@ -81,6 +93,41 @@ class LinkedViewTests(unittest.TestCase):
         result=normalise(view,SCHEMA,issues,inline=True);self.assertEqual(result['type'],'list');self.assertTrue(result['filters']);self.assertTrue(result['sorts']);self.assertTrue(issues)
         rows,_=inline_records(converter(e,SOURCE),{'views':[result]},'collection','instance',issues)
         self.assertTrue(rows[0]['query']['anyUi']['filters']);self.assertTrue(rows[0]['query']['anyUi']['sort'])
+
+    def test_native_board_keeps_its_group_and_source_filter(self):
+        e = self.engine()
+        view = deepcopy(e.views[DB][0])
+        view['type'] = 'board'
+        view['configuration'].update(group_by={'property_id':'state'}, card_size='large')
+        issues = set()
+        source = normalise(view, SCHEMA, issues, inline=True, native_inline=True)
+        rows, failures = inline_records(converter(e, SOURCE), {'views':[source]}, 'collection',
+                                        'instance', issues, native_layouts=True)
+        row = rows[0]
+        self.assertFalse(failures)
+        self.assertEqual(row['layout'], 'board')
+        self.assertEqual(row['layoutSettings']['boardColumns']['propertyId'], 'state')
+        self.assertEqual(row['layoutSettings']['cardSize'], 'large')
+        self.assertEqual(row['query']['anyUi']['source'], {'kind':'collection','id':'collection'})
+        self.assertTrue(row['query']['anyUi']['filters'])
+
+    def test_date_range_preserves_both_instants(self):
+        e = self.engine()
+        e.destination_version = (0, 4, 1)
+        prop = {'id':'range','type':'date','date':{'start':'2026-10-31T18:00:00+01:00',
+                'end':'2026-11-01T10:30:00+01:00'}}
+        e.pages = {ROOT:{'parent':{'data_source_id':SOURCE},'properties':{'Date':prop}}}
+        kind, form = e.shape(SOURCE, 'Date', prop)
+        self.assertEqual((kind, form['type']), ('object', 'period'))
+        self.assertEqual(e.value(ROOT, SOURCE, 'Date', prop, form), {
+            'from':{'$date':'2026-10-31T17:00:00Z'}, 'to':{'$date':'2026-11-01T09:30:00Z'}})
+
+    def test_underline_is_emitted_for_a_compatible_server(self):
+        e = self.engine()
+        e.destination_version = (0, 4, 1)
+        item = rich(' Underlined ')[0]
+        item['annotations'] = {'underline':True, 'bold':True}
+        self.assertEqual(Content(e, ROOT).rich([item]), ' <u>**Underlined**</u> ')
 
     def test_named_icons_map_without_guessing_arbitrary_images(self):
         self.assertEqual(emoji({'type':'icon','icon':{'name':'chef-hat'}}),'🧑‍🍳')

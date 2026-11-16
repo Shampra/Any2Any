@@ -2,7 +2,9 @@ name: Test and publish Any2Any
 
 on:
   push:
-    branches: [main, release/layout-0.10.1]
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -31,7 +33,7 @@ jobs:
 
   windows:
     needs: test
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]')
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]'))
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -56,7 +58,7 @@ jobs:
 
   publish:
     needs: [test, windows]
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]')
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish-release]'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

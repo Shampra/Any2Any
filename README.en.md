@@ -16,6 +16,7 @@
 - **Anytype selection**: spaces, collections, types and objects, with optional linked objects.
 - **Notion selection**: a tree with three selectable levels; selected branches include their deeper descendants. Linked objects outside the tree are optional.
 - **Notion views and properties**: compatible inline and collection views, filters, sorts, grouping, gallery settings, two-way relations and rollups.
+- **Anytype widgets**: shortcuts to imported pages and collections are added to Overview in source order, using Link or Views.
 - **Anytwo destination**: choose an existing space or create one. Anytype can also use an existing collection where that mode is offered. Each imported Notion data source creates its own collection/supertag and properties; its schema is not merged into an existing collection.
 - **Content migration**: pages, properties and relations, formatted text, links, images, and other files, subject to the current converter’s capabilities.
 - **Optional Anytype chat archives**: disabled by default; one archive page per source-space chat, with authors, dates, replies, reactions and attachments according to the files option. Chats remain outside ordinary page/type imports.
@@ -54,6 +55,8 @@ The interface listens on `127.0.0.1`, starting at port `8766`. On Windows, setti
 ## Known limitations
 
 The applications have different data models. Notion formulas become static results. Buttons, text/background colors, reminders, history and some view or block formats may be adapted or omitted. Notion charts are not imported; grouped inline views may become lists. Compatible collection views preserve grouping, filters and sorting. Galleries preserve **Fit image** and pages use **side peek** unless the source explicitly supplies full-page opening. The app shows source-specific limitations and each report lists detected changes. See [Notion import details (French)](docs/NOTION-IMPORT.fr.md).
+
+Inline views imported from Anytype require an Anytwo collection as their source. They cannot stay inside block columns. Some dynamic filters and relation restrictions cannot be transferred. The importer skips built-in Anytype widgets, and Notion's public API does not expose its sidebar configuration. Imported tables of contents are static. Underlining and some view layouts depend on the Anytwo version.
 
 Simple imports create new copies on every run, so restarting may create duplicates. Interrupted Notion reads can be reused in memory for 30 minutes; this does not automatically resume writes or synchronize data. There is no global rollback.
 

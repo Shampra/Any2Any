@@ -82,7 +82,8 @@ async function testDepthLimitAndDestinationDefault(){
  h=harness({saved:true,spaces:[]});await h.api.activate({});await h.get('notion-target-check').handlers.click();assert.equal(h.get('notion-target').value,'__create__');assert.equal(h.get('notion-target-name').value,'Workspace');
 }
 async function testImportLaunchAndReport(){
- h=harness({saved:true,importResult:{id:'run',status:'partial',target_space:'space',totals:{total:1},collections:[],files:[],errors:[],warnings:[],objects:[{name:'Gastronomie',target_id:'target',status:'partial',issues:['Formule figée'],errors:[]}]}});
+ const spaces=[];
+ h=harness({saved:true,spaces,importResult:{id:'run',status:'partial',target_space:'space',totals:{total:1},collections:[],files:[],errors:[],warnings:[],objects:[{name:'Gastronomie',target_id:'target',status:'partial',issues:['Formule figée'],errors:[]}]}});
  await h.api.activate({});h.get('notion-space').value='connected';await h.get('notion-space').handlers.change();assert.equal(h.get('notion-import').disabled,true);
  const label=h.all(h.get('notion-tree')).find(x=>x.tagName==='label'&&x.textContent.includes('Gastronomie'));label.children[0].checked=true;await label.children[0].handlers.change();
  h.get('notion-files-option').checked=true;h.get('notion-links-option').checked=true;assert.equal(h.get('notion-import').disabled,false);
@@ -90,5 +91,23 @@ async function testImportLaunchAndReport(){
  assert.equal(request.files,true);assert.equal(request.links,true);assert.equal(request.destination.name,'Workspace');assert.equal(request.rules[0].key,'page:root');
  assert.match(h.get('notion-analysis').textContent,/Import terminé avec adaptations/);assert.match(h.get('notion-analysis').textContent,/Formule figée/);assert.match(h.get('notion-analysis').textContent,/Télécharger le bilan/);
  assert.equal(h.get('notion-import').disabled,false);assert.equal(h.get('source-kind').disabled,false);
+ assert.equal(h.get('notion-target').value,'space');
+ assert.match(h.get('notion-destination-summary').textContent,/Espace existant : Workspace/);
+ assert(h.get('notion-target-name-row').classList.contains('hidden'));
+ const next=h.all(h.get('notion-tree')).find(x=>x.tagName==='label'&&x.textContent.includes('Autre page'));
+ label.children[0].checked=false;await label.children[0].handlers.change();
+ next.children[0].checked=true;await next.children[0].handlers.change();
+ await h.get('notion-import').handlers.click();
+ const imports=h.calls.filter(x=>x.path.endsWith('/import')).map(x=>x.body);
+ assert.equal(imports[0].destination.id,'__create__');
+ assert.equal(imports[1].destination.id,'space');
+ assert.equal(imports[1].rules.find(rule=>rule.include).key,'page:other');
+ spaces.push({id:'space',name:'Workspace'},{id:'other-space',name:'Workspace'});
+ await h.get('notion-target-check').handlers.click();
+ assert.equal(h.get('notion-target').value,'space');
+ spaces.shift();
+ await h.get('notion-target-check').handlers.click();
+ assert.equal(h.get('notion-target').value,'');
+ assert.equal(h.get('notion-import').disabled,true);
 }
 (async()=>{await testSavedLoadingAndSelection();await testSettingsReopenedDuringLoading();await testNoSavedToken();await testRejectedToken();await testDestinationSettings();await testPersistentOtherEntriesAndPrefetch();await testDepthLimitAndDestinationDefault();await testImportLaunchAndReport();console.log('8 Notion UI scenarios passed: confirmed connection/loading dismissal, settings reopened during loading, no-token settings, rejected token, destination API settings, persistent other entries and prefetch.');})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -293,33 +293,43 @@ def simulate(anytype, inventory, plan):
     for items in inventory['members'].values():
         indexed.update({x['id']: x for x in items})
     ids = set(indexed)
-    from source_views import SourceViews
+    from source_views import SourceViews, is_recent_widget_document, is_recent_widget_block, RECENT_WIDGET_TARGETS
     from view_conversion import UnsupportedView
     view_sources=SourceViews(anytype,source_space['id'],inventory)
     queued = deque(selected)
     visited = set()
+    ignored = set(RECENT_WIDGET_TARGETS)
     selected_ids = {x['id'] for x in selected}
     extra = 0
     errors = 0
     while queued:
         obj = queued.popleft()
         oid = obj['id']
-        if oid in visited:
+        if oid in visited or oid in ignored:
             continue
         visited.add(oid)
-        yield f'OBJET : {obj["name"]} — serait importé.'
         try:
             doc = view_sources.document(oid)
+            if is_recent_widget_document(doc,obj):
+                ignored.add(oid)
+                visited.remove(oid)
+                extra -= int(oid not in selected_ids)
+                continue
+            yield f'OBJET : {obj["name"]} — serait importé.'
             structural=set();view_ids=set()
             for block in doc.get('blocks') or []:
                 if not isinstance(block,dict) or block.get('type')!='dataview':continue
                 if block.get('object_id'):structural.add(block['object_id'])
+                if is_recent_widget_block(block):
+                    continue
                 if follow:
                     try:view_ids.update(view_sources.matching(doc,block))
                     except (APIError,UnsupportedView,ValueError,TypeError,KeyError) as exc:
                         yield '  ! Documents de vue intégrée non résolus : '+str(exc)
             indexed.update(view_sources.items)
             for ref in sorted((identify_links(doc, ids, oid)-structural)|view_ids):
+                if ref in ignored:
+                    continue
                 target_name = indexed[ref]['name']
                 if ref in visited or any(x['id'] == ref for x in queued):
                     continue

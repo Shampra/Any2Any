@@ -140,11 +140,10 @@ def file_html(uri,name):
     return '['+label+']('+target+')'
 
 
-def remove_unsupported_inline(text):
-    # Markdown has no underline/subscript/superscript transformer in this
-    # client. Keep the content and report the loss, without showing HTML tags.
+def remove_unsupported_inline(text, keep_underline=False):
+    tags = 'sub|sup' if keep_underline else 'u|sub|sup'
     parts=re.split(r'(`+[^`]*`+)',text)
-    return ''.join(part if index%2 else re.sub(r'</?(?:u|sub|sup)>','',part)
+    return ''.join(part if index%2 else re.sub(r'</?(?:'+tags+r')>','',part)
                    for index,part in enumerate(parts))
 
 
