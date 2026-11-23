@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from api_clients import APIError, Anytype, anytype_property_definitions
 from migration import (Engine, render_blocks, declared_column_shape, declared_properties, slug,
-                       custom_properties, import_artifacts, internal_record_property)
+                       custom_properties, import_artifacts, internal_record_property, mapped_relation)
 from view_conversion import (ViewConverter, UnsupportedView, enrich_descriptor,
                              create_saved_views, modify_records)
 
@@ -297,6 +297,16 @@ class ImportArtifactTests(unittest.TestCase):
         set_value.assert_not_called()
         self.assertEqual(summary['objects'][0]['errors'],[])
         self.assertIn('Valeur vide ignorée pour la propriété « Source »',summary['objects'][0]['issues'])
+
+
+    def test_relation_values_are_native_uri_arrays(self):
+        mapping={'a':'target-a','b':'target-b'}
+        self.assertEqual(mapped_relation(['a','b'],mapping),['any://target-a','any://target-b'])
+        self.assertEqual(mapped_relation('a',mapping),['any://target-a'])
+        # A single unmapped reference keeps the page usable: no relation array.
+        self.assertIsNone(mapped_relation(['a','gone'],mapping))
+        self.assertIsNone(mapped_relation([],mapping))
+        self.assertIsNone(mapped_relation('gone',mapping))
 
 
 

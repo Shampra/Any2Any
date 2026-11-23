@@ -239,6 +239,13 @@ def bookmark_url(doc):
     return None
 
 
+def mapped_relation(value, mapping):
+    """any://<objectId> references for imported objects, or None if one is missing."""
+    values = value if isinstance(value, list) else [value]
+    if not values or not all(isinstance(v, str) and v in mapping for v in values):
+        return None
+    return ['any://' + mapping[v] for v in values]
+
 def titled_link(title, url):
     label=str(title or url).replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
     return f'[{label}]({url})'
@@ -1138,7 +1145,10 @@ class Engine:
                             if value not in values:values.append(value)
                         if len(values)>1:raise UnsupportedView('Valeurs contradictoires pour la propriété source : '+name)
                         if values and target_binding[0] not in self.written_properties.get(oid,{}):
-                            set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,target_binding[0].split('.',1)[1],values[0])
+                            written=values[0]
+                            if target_binding[1].get('format')=='objects' and isinstance(written,str):
+                                written=[written]
+                            set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,target_binding[0].split('.',1)[1],written)
                 for source_path,_,_ in candidates:mirrored[source_path]=target_binding
                 bindings[name.casefold()]=[target_binding]
                 continue
@@ -1156,15 +1166,24 @@ class Engine:
             if not found and not spec:continue
             fmt=spec.get('format') or ('date' if name in ('created_date','last_modified_date','last_opened_date') else 'text')
             if name=='type':fmt='text'
+            # A relation column only accepts an array of any:// URIs. When the
+            # source value cannot be mapped, keep the value as text instead of
+            # creating a relation column the destination will reject.
+            references=[]
+            if fmt=='objects':
+                references=[mapped_relation(value,self.mapping) for _,value in found]
+                if not found or not all(references):
+                    issues.add(f'Référence externe dans la propriété « {name} » conservée en texte')
+                    spec['format']='text';fmt='text';references=[]
             spec.update(format=fmt,name=spec.get('name') or name)
             kind,form=declared_column_shape(spec)
             if fmt=='date' and found and any('T00:00:00' not in str(column_shape(fmt,v,issues)[2].get('$date','')) for _,v in found):
                 form['type']='datetime'
             pid,actual=self.property(scope,spec['name'],fmt,found[0][1] if found else None,issues,converter.metadata,override=(kind,form))
             bindings[name.casefold()]=[(scope+'.'+pid,spec,actual)]
-            for oid,value in found:
-                _,_,value=column_shape(fmt,value,issues)
-                set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,pid,value)
+            for index,(oid,value) in enumerate(found):
+                converted=references[index] if fmt=='objects' else column_shape(fmt,value,issues)[2]
+                set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,pid,converted)
         return scope,ViewConverter(bindings,converter.mapping,converter.type_collections,converter.metadata,anytype_controls=converter.anytype_controls)
 
 
