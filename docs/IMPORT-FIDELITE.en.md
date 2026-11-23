@@ -132,3 +132,10 @@ Anytype keeps its internal bookkeeping in the same property map as user values. 
 - They are no longer imported as columns or values, including when they appear in a type schema or in inline view filters.
 - Safety net: at the end of the import, columns bearing those names in the collections created by this run are removed through `DELETE /v1/spaces/:spaceId/collections/:collectionId/properties/:propId`. Reused destination collections are never cleaned, so an existing user column is never deleted. Any removal is listed in the JSON report under `removed_properties`.
 - Already imported objects are not repaired automatically: running the import again creates new copies.
+
+## Empty or non-absolute property values — fix of 23 November 2026
+
+- An empty value (`""` or blanks) is no longer written for the `url`, `email`, `phone`, `number` and `date` formats. Anytwo rejected the whole request (`property.format_violation: url value "" must be an absolute URL with a scheme`), which failed that page property. The value is now skipped with the warning “Valeur vide ignorée pour la propriété …”, without creating a useless column.
+- A non-absolute address (no scheme) is kept as text with the warning “Valeur non absolue pour … conservée en texte”, instead of being lost or blocking the page.
+- Empty dates no longer produce an invalid `$date` value.
+- These fixes apply to future imports.

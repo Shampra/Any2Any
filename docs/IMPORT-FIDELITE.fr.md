@@ -132,3 +132,10 @@ Anytype range sa comptabilité interne dans la même table de propriétés que l
 - Ils ne sont plus importés comme colonnes ni comme valeurs, y compris lorsqu’ils apparaissent dans le schéma d’un type ou dans les filtres d’une vue intégrée.
 - Filet de sécurité : à la fin de l’import, les colonnes portant ces noms dans les collections créées par cet import sont supprimées via `DELETE /v1/spaces/:spaceId/collections/:collectionId/properties/:propId`. Les collections de destination réutilisées ne sont pas nettoyées, afin de ne jamais supprimer une colonne existante de l’utilisateur. Les suppressions éventuelles figurent dans `removed_properties` du rapport JSON.
 - Les objets déjà importés ne sont pas réparés automatiquement : relancer un import crée de nouvelles copies.
+
+## Valeurs de propriétés vides ou non absolues — correctif du 23 novembre 2026
+
+- Une valeur vide (`""` ou espaces) n’est plus écrite pour les formats `url`, `email`, `phone`, `number` et `date`. Anytwo refusait la requête entière (`property.format_violation : url value "" must be an absolute URL with a scheme`), ce qui faisait échouer la propriété de la page. La valeur est désormais ignorée avec l’avertissement « Valeur vide ignorée pour la propriété … », sans colonne inutile.
+- Une adresse non absolue (sans schéma) est conservée en texte avec l’avertissement « Valeur non absolue pour … conservée en texte », au lieu d’être perdue ou de bloquer la page.
+- Les dates vides ne produisent plus de valeur `$date` invalide.
+- Ces correctifs s’appliquent aux prochains imports.
