@@ -58,7 +58,7 @@ Les schémas de vues et d'écriture ont également été lus sur l'API installé
 
 ## Mise en forme, médias et icônes
 
-Vérification isolée avec le parseur réel du client installé (build `7a477ecc`, serveur any v0.3.4), sans accès à ses données ni aux médias distants :
+Vérification isolée avec le parseur réel du client installé (build `7a477ecc`, serveur any v0.3.4), sans accès à ses données ni aux médias distants. Depuis le serveur any v0.5.0 ces enveloppes ne sont plus interprétées : voir le complément « Marqueurs de mise en page » plus bas.
 
 - Toggles : marqueurs `any:collapsible`, avec titres et contenu imbriqué. Le parseur produit `collapsible-container`, `collapsible-title` et `collapsible-content`.
 - YouTube : enveloppe native `any:block`, de type `embed`, fournisseur `youtube`. Le parseur produit `extension-block`, sans afficher de code iframe.
@@ -147,3 +147,10 @@ Anytype range sa comptabilité interne dans la même table de propriétés que l
 - Les messages du journal et du bilan (issues, erreurs, progression, analyse) sont traduits par gabarits : les noms d’objets et les identifiants sont réinsérés tels quels. Un rapport entièrement anglais ne contient plus de texte français, hors données source.
 
 - Complément : une valeur de relation déjà stockée sous forme de liste JSON ou d’identifiant brut est normalisée en URI `any://` avant écriture. Une référence non importée est ignorée avec l’avertissement « Référence de relation non importée : valeur ignorée », au lieu de produire `link "[...]" must be a plain any://<objectId> URI`.
+
+## Marqueurs de mise en page et colonnes en double — complément du 23 novembre 2026
+
+- Constat sur serveur any v0.5.0 (commit `88fae2e5`) : un commentaire HTML du document est stocké comme bloc `html` générique. Les enveloppes `any:collapsible`, `any:columns` et `any:block` s’affichent donc en texte dans la page, tels quels.
+- Le migrateur détecte la version du serveur. À partir de 0.5.0 il écrit un Markdown simple : titre en gras (ou en titre `#` pour les titres repliables), contenu à la suite, colonnes rendues l’une après l’autre, intégration vidéo remplacée par son lien, largeur d’image omise. Un message du journal explique ce repli, et le bilan reste sans avertissement par objet.
+- Vérification sur des pages réelles de la source : 25 à 31 enveloppes par page deviennent 0, et une écriture réelle dans un espace de test ne contient plus aucun bloc `html`.
+- Une relation dont certaines cibles ne sont pas importées ne crée plus de colonne texte en double « X (Anytype) » : la colonne de relation déclarée est conservée et seules les références absentes sont écartées. Une relation dont toutes les cibles manquent n’écrit rien du tout. La colonne en double créée par un import antérieur reste à supprimer à la main.

@@ -58,7 +58,7 @@ The view and write schemas were also read on the installed API (any v0.3.4). No 
 
 ## Formatting, media and icons
 
-Isolated verification with the installed client's real parser (build `7a477ecc`, server any v0.3.4), without accessing its data or remote media:
+Isolated verification with the installed client's real parser (build `7a477ecc`, server any v0.3.4), without accessing its data or remote media. Since server any v0.5.0 these envelopes are no longer interpreted: see the “Layout markers” follow-up below.
 
 - Toggles: `any:collapsible` markers, with titles and nested content. The parser produces `collapsible-container`, `collapsible-title` and `collapsible-content`.
 - YouTube: native `any:block` envelope, `embed` type, provider `youtube`. The parser produces `extension-block`, without displaying iframe code.
@@ -147,3 +147,10 @@ Anytype keeps its internal bookkeeping in the same property map as user values. 
 - Log and report messages (issues, errors, progress, analysis) are translated through templates: object names and identifiers are reinserted verbatim. A fully English report no longer contains French text outside source data.
 
 - Follow-up: a relation value already stored as a JSON list or a raw identifier is normalized to `any://` URIs before writing. A reference that was not imported is skipped with the warning “Référence de relation non importée : valeur ignorée”, instead of producing `link "[...]" must be a plain any://<objectId> URI`.
+
+## Layout markers and duplicate columns — 23 November 2026 follow-up
+
+- Observation on server any v0.5.0 (commit `88fae2e5`): an HTML comment in the document is stored as a generic `html` block. The `any:collapsible`, `any:columns` and `any:block` envelopes therefore show up as literal text inside the page.
+- The migrator reads the server version. From 0.5.0 on it writes plain Markdown instead: a bold title (or a `#` heading for toggle headings), its content right after, columns rendered one after another, video embeds replaced by their link, and image width omitted. A log message explains the fallback, and the report keeps no per-page warning.
+- Verification on real source pages: 25 to 31 envelopes per page become 0, and a real write into a test space stores no `html` block at all.
+- A relation whose targets were not all imported no longer creates a duplicate `X (Anytype)` text column: the declared relation column is kept and only the missing references are dropped. A relation with no imported target writes nothing at all. A duplicate column created by an earlier import still has to be deleted by hand.
