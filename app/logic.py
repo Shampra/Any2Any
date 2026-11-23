@@ -39,6 +39,12 @@ def is_conversation(obj):
 
 GENERIC_TYPES = {'page', 'pages', 'note', 'notes'}
 
+# Anytype serialises inline @ mentions as HTML-like tags inside block text.
+# Both object_id and objectId, and single or double quotes, are accepted.
+INLINE_MENTION_RE = re.compile(
+    r'<mention\b[^>]*?\bobject_?id\s*=\s*(?:"([^"]*)"|\'([^\']*)\')[^>]*>(.*?)</mention>',
+    re.IGNORECASE | re.DOTALL)
+
 # These are intrinsic Anytwo fields, not collection columns. Names, icons and
 # type identifiers are intrinsic to object creation as well.
 INTRINSIC_PROPERTIES = {
@@ -195,6 +201,11 @@ def identify_links(document, known_ids, self_id):
             if 'anytype://object?objectId=' in value:
                 for match in re.finditer(r'anytype://object\?objectId=([^)&\s]+)', value):
                     oid = unquote(match.group(1))
+                    if oid in known_ids and oid != self_id:
+                        refs.add(oid)
+            if '<mention' in value:
+                for match in INLINE_MENTION_RE.finditer(value):
+                    oid = unquote(match.group(1) or match.group(2) or '')
                     if oid in known_ids and oid != self_id:
                         refs.add(oid)
     visit(document)

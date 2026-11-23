@@ -31,7 +31,7 @@ from anytwo_backend import (
                          add_column, set_column_value, set_markdown, append_markdown,
                          attach_file, get_file_info, create_editor_block, add_membership, target_write, local_get, _segment)
 from chat_archives import histories as chat_histories, markdown as chat_markdown
-from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation
+from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation, INLINE_MENTION_RE
 
 MAX_OBJECTS = 500
 SYSTEM = {x.replace('-', '_').replace(' ', '_').casefold() for x in INTRINSIC_PROPERTIES}
@@ -319,7 +319,16 @@ def replace_inline_links(text, mapping, sid, names, issues):
             return m.group(0)
         return m.group(1) + new
     text = re.sub(r'(\]\()anytype://object\?objectId=([^)& ]+)', old_url, str(text))
-    return text
+    # Anytype serialises inline @ mentions as tags Anytwo would display raw.
+    def mention(match):
+        oid = unquote((match.group(1) or match.group(2) or '').strip())
+        label = html.unescape(match.group(3)).strip() or str(names.get(oid) or oid)
+        uri = reference_link(oid, mapping, sid, names)
+        if not uri:
+            issues.add('Mention vers un objet non importé')
+            return label
+        return titled_link(label, uri)
+    return INLINE_MENTION_RE.sub(mention, text)
 
 
 def _nested_fragment(blocks, mapping=None, sid=None, names=None, issues=None,
@@ -444,7 +453,10 @@ def _table_cell_html(cell, issues, mapping=None, sid=None, names=None, files_all
             issues.add('Couleur des cellules du tableau non reproduite')
         kind = str(cell.get('type') or '')
         if kind in ('checkbox', 'check_list_item'):
-            return checkbox_html(inline_html(cell.get('text') or ''),cell.get('checked',False))
+            value=cell.get('text') or ''
+            if mapping is not None and isinstance(value,str):
+                value=replace_inline_links(value,mapping,sid,names or {},issues)
+            return checkbox_html(inline_html(value),cell.get('checked',False))
         if isinstance(cell.get('blocks'), list):
             return _nested_fragment(cell['blocks'],mapping,sid,names,issues,files_allowed,file_import)
         value=cell.get('text') if cell.get('text') is not None else cell.get('value', '')
@@ -1568,11 +1580,12 @@ class Engine:
                 markdown='\n\n'.join(x for x in (cover_line,markdown) if x)
             if query_missing:
                 markdown += '\n\n> **Attention : les vues ou requêtes dynamiques de cet objet n’ont pas été reproduites.**'
-            if 'Lien vers un objet non importé' in issues:
-                markdown+='\n\n> **Attention : certains liens renvoient à des objets Anytype non importés.**'
             description=(doc.get('properties') or {}).get('description') if isinstance(doc.get('properties'),dict) else None
             if description:
-                markdown='> '+str(description)+'\n\n'+markdown
+                description=replace_inline_links(str(description),self.mapping,self.dest_sid,self.names,issues)
+                markdown='> '+description+'\n\n'+markdown
+            if {'Lien vers un objet non importé','Mention vers un objet non importé'} & issues:
+                markdown+='\n\n> **Attention : certains liens renvoient à des objets Anytype non importés.**'
             # Property failures are also explicit in the target page.
             if r['errors']:
                 markdown += '\n\n> **Attention : certaines propriétés ou parties de cet objet n’ont pas été importées.**'
