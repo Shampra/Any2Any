@@ -480,13 +480,19 @@ function renderFinalReport(report){
   for(const col of report.collections||[]){
     if(!(col.issues||[]).length)continue;
     const line=document.createElement('p');line.className='report-issue';
-    line.textContent='Collection « '+col.name+' » : '+col.issues.join(' ; ');root.append(line);
+    // The prefix is one node so the quotes can follow each language's spacing.
+    line.append(document.createTextNode('Collection « '+col.name+' » :'),document.createTextNode(' '));
+    (col.issues||[]).forEach((issue,index)=>{
+      if(index)line.append(document.createTextNode(' ; '));
+      const part=document.createElement('span');part.textContent=issue;line.append(part);
+    });
+    root.append(line);
   }
   const warnings=Object.entries(report.warnings||{});
   if(warnings.length){
     const box=document.createElement('div');box.className='report-warning-box';
     const label=document.createElement('strong');label.textContent='Incompatibilités regroupées';box.append(label);
-    for(const [problem,count] of warnings){const p=document.createElement('p');p.textContent=`${problem} · ${count} occurrence(s)`;box.append(p);}
+    for(const [problem,count] of warnings){const p=document.createElement('p');const text=document.createElement('span');text.textContent=problem;p.append(text,document.createTextNode(` · ${count} occurrence(s)`));box.append(p);}
     root.append(box);
   }
   for(const item of report.objects||[]){

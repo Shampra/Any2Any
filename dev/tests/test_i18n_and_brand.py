@@ -52,6 +52,23 @@ if(t('Any2Any · Importer','en')!=='Any2Any · Import') process.exit(5);
             'Contenu non reproduit :': 'Content not reproduced: ',
             'Propriété « unknown » conservée en texte (format non transposable)':
                 'Property “unknown” kept as text (format cannot be mapped)',
+            'Largeurs de colonnes archivées : réglage local du client Anytwo':
+                'Column widths archived: local setting of the Anytwo client',
+            'Vue limitée au périmètre importé : 14 membre(s) source non importé(s)':
+                'View limited to the imported scope: 14 source member(s) not imported',
+            'Propriétés de collection non reproduites : HTTP 400':
+                'Collection properties not reproduced: HTTP 400',
+            '! Widgets Anytype non lus : délai':
+                '! Anytype widgets not read: délai',
+            'Colonne affichée non transposable : type': 'Displayed column cannot be mapped: type',
+            'OBJET : Kitty — serait importé.': 'OBJECT: Kitty — would be imported.',
+            'BILAN : 4 objet(s) prévu(s), 0 ajouté(s) par les liens, 0 erreur(s) de lecture.':
+                'REPORT: 4 object(s) planned, 0 added through links, 0 read error(s).',
+            '↳ Lien vers « Kitty » : objet ajouté au périmètre.':
+                '↳ Link to “Kitty”: object added to the scope.',
+            'Collection « Alternate » :': 'Collection “Alternate”:',
+            'Correspondance manquante pour le type « Character ».':
+                'Missing mapping for type “Character”.',
         }
         script = """const fs=require('fs'),vm=require('vm');
 const sandbox={navigator:{language:'fr-FR'},localStorage:{getItem:()=>null,setItem:()=>{}}};
