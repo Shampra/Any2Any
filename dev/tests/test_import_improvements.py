@@ -153,6 +153,38 @@ class FidelityTests(unittest.TestCase):
         self.assertIn('False',result)
         self.assertIn('0',result)
 
+    def test_mention_tags_become_native_object_links(self):
+        issues=set()
+        doc={'blocks':[{'type':'paragraph',
+            'text':'The <mention object_id="a">Magic 8 ball</mention> of it all, '
+                   "then <mention objectId='b'>Tom &amp; Jerry</mention>."}]}
+        result=render_blocks(doc,{'a':'new-a','b':'new-b'},'s',{'a':'Magic 8 ball','b':'Tom & Jerry'},
+                             False,None,issues)
+        self.assertIn('[Magic 8 ball](any://o/s/new-a)',result)
+        self.assertIn('[Tom & Jerry](any://o/s/new-b)',result)
+        self.assertNotIn('<mention',result)
+        self.assertFalse(issues)
+
+    def test_mentions_in_table_cells_and_compound_checkboxes(self):
+        doc={'blocks':[{'type':'table','rows':[{'cells':[
+            {'blocks':[{'type':'paragraph','text':'See <mention object_id="a">Alpha</mention>'}]},
+            {'type':'checkbox','checked':True,'text':'Check <mention object_id="a">Alpha</mention>'}]}]}]}
+        result=render_blocks(doc,{'a':'new-a'},'s',{'a':'Alpha'},False,None,set())
+        self.assertEqual(result.count('<a href="any://o/s/new-a">Alpha</a>'),2)
+        self.assertNotIn('<mention',result)
+
+    def test_unmapped_and_empty_label_mentions(self):
+        issues=set()
+        result=render_blocks({'blocks':[{'type':'paragraph',
+            'text':'Ask <mention object_id="gone">Former name</mention>.'}]},
+            {},'s',{'gone':'Current name'},False,None,issues)
+        self.assertEqual(result,'Ask Former name.')
+        self.assertIn('Mention vers un objet non importé',issues)
+        result=render_blocks({'blocks':[{'type':'paragraph',
+            'text':'See <mention object_id="x"></mention>.'}]},
+            {'x':'new-x'},'s',{'x':'Known name'},False,None,set())
+        self.assertIn('[Known name](any://o/s/new-x)',result)
+
     def test_date_less_filter_is_refused_when_empty_semantics_differ(self):
         with self.assertRaises(UnsupportedView):
             self.converter.predicate({'property':'Date','condition':'less','value':'2026-10-29'})
