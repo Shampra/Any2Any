@@ -268,5 +268,36 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertEqual(summary['removed_properties'],
                          [{'name':'Source object','collection_id':'coll1','property_id':'p1'}])
 
+    def test_empty_url_and_relative_url_values_do_not_fail_the_page(self):
+        class Source:
+            def object_detail(self, sid, oid):
+                return {'properties':{'name':'Trinket','source':''},
+                        'blocks':[{'type':'paragraph','text':'Body'}]}
+        trinket={'id':'t','name':'Trinket','type':'character'}
+        inventory={'all':[trinket],'objects':[trinket],'collections':[],'members':{},'standalone':[],
+                   'types':[{'id':'type-character','key':'character','name':'Characters','items':[trinket]}],
+                   'stats':{}}
+        plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
+              'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
+              'mode':'simple','follow_links':False,'files':False}
+        created=[]
+        def add_column(target,sid,cid,name,xkey,kind,fmt):
+            created.append(name); return 'prop-'+name
+        with patch('migration.create_space',return_value='dest'),\
+             patch('migration.create_collection',return_value='coll1'),\
+             patch('migration.create_object',return_value='new-t'),\
+             patch('migration.anytype_property_definitions',return_value={'source':{'name':'Source','format':'url'}}),\
+             patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',side_effect=add_column),\
+             patch('migration.set_column_value') as set_value,\
+             patch('migration.set_markdown'):
+            events=list(Engine(Source(),object(),inventory,plan).run())
+        summary=[event for event in events if event['event']=='summary'][-1]
+        self.assertNotIn('Source',created)
+        set_value.assert_not_called()
+        self.assertEqual(summary['objects'][0]['errors'],[])
+        self.assertIn('Valeur vide ignorée pour la propriété « Source »',summary['objects'][0]['issues'])
+
+
 
 if __name__=='__main__':unittest.main()

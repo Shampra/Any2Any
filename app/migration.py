@@ -1505,6 +1505,16 @@ class Engine:
                 if not cols:
                     r['errors'].append(f'Propriété « {name} » sans collection de destination')
                     continue
+                # Anytwo rejects an empty value for these formats instead of
+                # ignoring it; writing "" aborted the whole property of a page.
+                if isinstance(value,str) and not value.strip() and fmt in ('url','email','phone','number','date'):
+                    r['issues'].add(f'Valeur vide ignorée pour la propriété « {label} »')
+                    continue
+                if fmt=='url' and isinstance(value,str) and not urlparse(value.strip()).scheme:
+                    # Keep a relative address as text rather than lose it to a
+                    # format the destination cannot store.
+                    r['issues'].add(f'Valeur non absolue pour « {label} » conservée en texte')
+                    fmt='text'
                 primary=self.property_owner.get(oid) or cols[0]
                 try:
                     if fmt=='files':
