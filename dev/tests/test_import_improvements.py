@@ -235,7 +235,7 @@ class ImportArtifactTests(unittest.TestCase):
         class Source:
             def object_detail(self, sid, oid):
                 return {'properties':{'name':'Kitty','source_object':['bafy-x'],
-                                      'template_name_prefill_type':1,'stars':['bafy-y']},
+                                      'template_name_prefill_type':1,'stars':['k']},
                         'blocks':[{'type':'paragraph','text':'Body'}]}
         kitty={'id':'k','name':'Kitty','type':'character'}
         inventory={'all':[kitty],'objects':[kitty],'collections':[],'members':{},'standalone':[],
@@ -320,6 +320,48 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertIsNone(relation_references([],mapping))
         self.assertIsNone(relation_references(['a',None],mapping))
 
+    def _relation_columns(self, adventure):
+        class Source:
+            def object_detail(self, sid, oid):
+                return {'properties':{'name':'Sigil','adventure':adventure},
+                        'blocks':[{'type':'paragraph','text':'Body'}]}
+        item={'id':'i','name':'Sigil','type':'character'}
+        other={'id':'0','name':'Other','type':'character'}
+        inventory={'all':[item,other],'objects':[item,other],'collections':[],'members':{},'standalone':[],
+                   'types':[{'id':'t','key':'character','name':'Characters','items':[item,other]}],'stats':{}}
+        plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
+              'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
+              'mode':'simple','follow_links':False,'files':False}
+        created=[]; written=[]; ids=iter(['new-i','new-0'])
+        def add_column(target,sid,cid,name,xkey,kind,fmt):
+            created.append((name,kind,(fmt or {}).get('type')))
+            return 'prop-'+name
+        with patch('migration.create_space',return_value='dest'),\
+             patch('migration.create_collection',return_value='coll1'),\
+             patch('migration.create_object',side_effect=lambda *a, **k: next(ids)),\
+             patch('migration.anytype_property_definitions',
+                   return_value={'adventure':{'name':'Mystery','format':'objects'}}),\
+             patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',side_effect=add_column),\
+             patch('migration.set_column_value',side_effect=lambda *a: written.append(a[-1])),\
+             patch('migration.set_markdown'):
+            list(Engine(Source(),object(),inventory,plan).run())
+        return created,written
+
+    def test_unmapped_relation_does_not_create_a_text_duplicate(self):
+        created,written=self._relation_columns(['gone'])
+        self.assertFalse(any('(Anytype)' in name for name,_,_ in created))
+        # Every target is missing: no column and no value are created at all.
+        self.assertEqual(created,[])
+        self.assertEqual(written,[])
+
+    def test_partially_mapped_relation_keeps_only_imported_targets(self):
+        created,written=self._relation_columns(['0', 'gone'])
+        self.assertFalse(any('(Anytype)' in name for name,_,_ in created))
+        self.assertIn(('Mystery','array','relation'),created)
+        # Only the imported target survives; the unknown reference is dropped.
+        self.assertTrue(written)
+        self.assertTrue(all(v==['any://new-0'] for v in written), written)
 
 
 if __name__=='__main__':unittest.main()

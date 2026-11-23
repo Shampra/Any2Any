@@ -1577,13 +1577,15 @@ class Engine:
                         fmt='text';value='\n'.join(urls)
                     if fmt=='objects':
                         values=value if isinstance(value,list) else [value]
-                        valid=[reference_link(v,self.mapping,self.dest_sid,self.names) for v in values]
-                        if all(valid):
-                            converted=['any://'+self.mapping[v] for v in values]
-                            spec=('array',{'type':'relation','config':{'multiple':len(valid)>1}})
-                        else:
-                            r['issues'].add(f'Référence externe dans la propriété « {name} » conservée en texte')
-                            fmt='unknown'
+                        kept=[v for v in values if isinstance(v,str) and v in self.mapping]
+                        if len(kept)!=len(values):
+                            # Keeping the relation format avoids a duplicate
+                            # text column named "X (Anytype)" in the collection.
+                            r['issues'].add(f'Référence externe dans la propriété « {name} » ignorée')
+                        if not kept:
+                            continue
+                        converted=['any://'+self.mapping[v] for v in kept]
+                        spec=('array',{'type':'relation','config':{'multiple':len(kept)>1}})
                     if fmt!='objects':
                         kind, form, converted = column_shape(fmt,value,r['issues'])
                     else:
