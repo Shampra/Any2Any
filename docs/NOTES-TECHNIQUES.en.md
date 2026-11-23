@@ -4,7 +4,7 @@
 
 The common version starts with Any2Any.exe in the standalone Windows archive, or demarrer.bat in the source version, and offers Anytype or Notion before the access checks. This document mainly details the Anytype source; the Notion journey is described in [NOTION-IMPORT.en.md](NOTION-IMPORT.en.md).
 
-**Project version: 0.9.3.** The change sections below trace previous versions. Current improvements are detailed in [the bilingual changelog](../CHANGELOG.md) and [import fidelity](IMPORT-FIDELITE.en.md).
+**Project version: 0.11.0.** The change sections below trace previous versions. Current improvements are detailed in [the bilingual changelog](../CHANGELOG.md) and [import fidelity](IMPORT-FIDELITE.en.md).
 
 Python application + local web interface for importing Anytype spaces, collections, types and objects into Anytwo. **The simple import really creates data in Anytwo.** The Anytype source is always queried read-only. The “With synchronization” option is **not operational yet** and does not allow a real import.
 

@@ -7,9 +7,9 @@
   const messages={
     'Any2Any · Importer':['Any2Any · Import','Any2Any · Importieren'],
     'Any2Any · Autorisation Anytype':['Any2Any · Anytype authorization','Any2Any · Anytype-Autorisierung'],
-    'Anytype → Anytwo · Outil de migration · Bêta 0.9.3':['Anytype → Anytwo · Migration tool · Beta 0.9.3','Anytype → Anytwo · Migrationstool · Beta 0.9.3'],
+    'Anytype → Anytwo · Outil de migration · Bêta 0.11.0':['Anytype → Anytwo · Migration tool · Beta 0.11.0','Anytype → Anytwo · Migrationstool · Beta 0.11.0'],
     'Autorisation Anytype · Importateur':['Anytype authorization · Importer','Anytype-Autorisierung · Importer'],
-    'Outil de migration · Bêta 0.9.3':['Migration tool · Experimental beta 0.9.3','Migrationstool · Experimentelle Beta 0.9.3'],
+    'Outil de migration · Bêta 0.11.0':['Migration tool · Experimental beta 0.11.0','Migrationstool · Experimentelle Beta 0.11.0'],
     'D’où souhaitez-vous importer ?':['Where would you like to import from?','Aus welcher App möchten Sie importieren?'],
     'Choisissez votre application source. Nous vérifierons ensuite les accès nécessaires.':['Choose your source app. We will then check the required connections.','Wählen Sie Ihre Quell-App. Anschließend prüfen wir die benötigten Zugänge.'],
     'Depuis l’application sur cet ordinateur':['From the app on this computer','Aus der App auf diesem Computer'],

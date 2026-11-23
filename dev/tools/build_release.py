@@ -10,7 +10,7 @@ sys.path.insert(0,str(ROOT/'app'))
 sys.path.insert(0,str(ROOT/'dev'))
 from app_version import VERSION
 APP_FILES=('app_version.py', 'anytwo_backend.py', 'api_clients.py', 'chat_archives.py', 'file_transfer.py', 'inline_views.py', 'logic.py', 'migration.py', 'notion_cache.py', 'notion_compatibility.py', 'notion_content.py', 'notion_demo.py', 'notion_files.py', 'notion_icons.py', 'notion_import_jobs.py', 'notion_jobs.py', 'notion_migration.py', 'notion_native.py', 'notion_routes.py', 'notion_source.py', 'notion_tree.py', 'notion_views.py', 'rich_content.py', 'runtime_profile.py', 'server.py', 'source_views.py', 'view_conversion.py')
-PUBLIC_FILES=('README.md','README.en.md','LICENSE','CHANGELOG.md','demarrer.bat','demo.bat',
+PUBLIC_FILES=('README.md','README.en.md','LICENSE','CHANGELOG.md','demarrer.bat','demo.bat','Any2Any.command',
               'docs/NOTES-TECHNIQUES.fr.md','docs/NOTES-TECHNIQUES.en.md',
               'docs/NOTION-API.fr.md','docs/NOTION-API.en.md',
               'docs/NOTION-IMPORT.fr.md','docs/NOTION-IMPORT.en.md')
@@ -30,7 +30,8 @@ def build(root=ROOT,output=None):
     with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as archive:
         for name,content in sorted(contents.items()):
             info=zipfile.ZipInfo(name,date_time=(1980,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED
-            info.external_attr=0o100644<<16
+            # Launchers must stay executable after extraction; everything else is a plain file.
+            info.external_attr=(0o100755 if name.endswith('.command') else 0o100644)<<16
             archive.writestr(info,content)
     digest=hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix('.sha256').write_text(digest+'  '+output.name+'\n',encoding='utf-8')

@@ -31,15 +31,27 @@
 
 1. Open the [GitHub releases](https://github.com/Shampra/Any2Any/releases) and download the **application archive** attached to the desired release. Extract it into a dedicated folder and open that folder. The attached SHA-256 file can be used to verify the download.
 2. Open Anytwo and, for an Anytype import, Anytype.
-3. In the **standalone Windows** archive, run **`Any2Any.exe`** at the top level. With the **source** archive, run `demarrer.bat` or `python app/server.py` from the project directory.
-4. Choose **Anytype** or **Notion** in the welcome dialog, then complete the access checks. Saved Notion tokens are checked automatically.
-5. Select your content and destination. Run **Test**, then **Import**.
+3. Start the application for your system:
+   - **Windows standalone**: double-click **`Any2Any.exe`** at the top level of the archive.
+   - **Windows source**: double-click **`demarrer.bat`**.
+   - **macOS**: double-click **`Any2Any.command`**. If macOS blocks it, right-click the file, choose **Open**, then confirm. The terminal prints the local address.
+   - **Linux or a terminal**: `./Any2Any.command` or `python3 app/server.py --profile unified`.
+4. The browser opens `http://127.0.0.1:8766`. If it does not, open that address yourself; it is also printed in the terminal.
+5. Choose **Anytype** or **Notion** in the welcome dialog, then complete the access checks. Saved Notion tokens are checked automatically.
+6. Select your content and destination. Run **Test**, then **Import**.
+7. Close the terminal window (or press `Ctrl+C`) to stop the application; settings are kept for next time.
 
 ### Folder layout
 
 The Windows archive has `Any2Any.exe` at the top level, dependencies under `_internal/` and documentation under `documentation/`. Keep these folders alongside the executable.
 
-The repository and source archive keep launchers at the top level and runtime files under `app/`. The repository’s `dev/` folder groups tests and development tools and is excluded from the application archive.
+The repository and source archive keep launchers at the top level (`demarrer.bat`, `demo.bat`, `Any2Any.command`) and runtime files under `app/`. The repository’s `dev/` folder groups tests and development tools and is excluded from the application archive.
+
+If port `8766` is already in use, the application picks the next one: the address actually used is printed in the terminal. No administrator rights are required and nothing is exposed outside `127.0.0.1`.
+
+### First launch of the executable
+
+**`Any2Any.exe`** is produced by GitHub Actions for every release and attached to it. It installs nothing and does not need Python, but Windows may show a SmartScreen warning (unsigned publisher): click **More info**, then **Run anyway**. The executable, `_internal/` and `documentation/` must stay together. You can put a shortcut to `Any2Any.exe` on your desktop.
 
 ### Connect your source
 
@@ -48,7 +60,7 @@ The repository and source archive keep launchers at the top level and runtime fi
 
 The API status button at the top right reopens connection settings. **Retrieve files** and **Import linked items** options adapt to the source and selected scope.
 
-Use `demo.bat`, `Any2Any.exe --demo` or `python app/server.py --demo` to explore sample content without real writes. The source selector at the top lets you switch applications later.
+Use `demo.bat` (Windows), `Any2Any.command --demo` (macOS) or `python app/server.py --demo` to explore sample content without real writes. Import stays disabled in this mode, but the interface and language selection can be tested freely. The source selector at the top lets you switch applications later.
 
 The interface listens on `127.0.0.1`, starting at port `8766`. On Windows, settings are stored in `%APPDATA%/any2any`; remembered credentials use Windows DPAPI. The first launch can reuse saved development credentials without changing the old profiles. Typical destination/source API ports are `31310` for Anytwo and `31009` for Anytype.
 
