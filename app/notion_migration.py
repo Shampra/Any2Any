@@ -12,7 +12,7 @@ from anytwo_backend import APIError, _segment
 from notion_source import MAX_ITEMS, MAX_BLOCKS, notion_id, title, text
 from notion_content import Content, escape
 from notion_icons import content_icon,emoji
-from rich_content import ImportedFile, image_markdown, file_html
+from rich_content import ImportedFile, image_markdown, file_html, legacy_markup, envelopes_supported
 from file_transfer import FileLibrary
 from notion_files import download, filename
 from notion_views import normalise, converter
@@ -621,6 +621,8 @@ class Engine:
             if page.get('cover'):
                 uri=self.media(oid,page['cover'],'image')
                 if uri:markdown=image_markdown(uri,'Couverture')+'\n\n'+markdown;issues.add('Couverture conservée comme image en tête de page')
+            if not envelopes_supported(self.destination_version):
+                markdown=legacy_markup(markdown)
             try:backend.set_markdown(self.target,self.sid,self.mapping[oid],markdown)
             except APIError as exc:self.results[oid]['errors'].append('Contenu : '+str(exc))
             self.results[oid]['status']='partial' if issues or self.results[oid]['errors'] else 'imported';self.checkpoint()

@@ -68,6 +68,31 @@ def native_toggle(block,children,render,title):
                          '<!-- /any:collapsible -->'])
 
 
+def envelopes_supported(version):
+    """Anytwo 0.5 shows HTML comment envelopes as visible html blocks."""
+    return not (version and tuple(version) >= (0, 5, 0))
+
+
+ENVELOPE_COMMENT_RE=re.compile(r'[ \t]*<!--\s*/?\s*any:[^\n]*?-->[ \t]*')
+COLLAPSIBLE_ENVELOPE_RE=re.compile(
+    r'<!--\s*any:collapsible\s[^\n]*?-->[ \t]*\n+[ \t]*([^\n]+?)[ \t]*\n+[ \t]*<!--\s*any:collapsible-content\s*-->')
+
+
+def legacy_markup(markdown):
+    """Rewrite native envelopes as plain Markdown for clients without markers.
+
+    Anytwo 0.5 stores HTML comments as generic html blocks instead of the native
+    collapsible, columns and embed nodes, so an envelope would be displayed as
+    page text. Toggle titles stay visible as bold titles or headings.
+    """
+    def toggle(match):
+        title=match.group(1)
+        return title if title.startswith('#') else '**'+title+'**'
+    text=COLLAPSIBLE_ENVELOPE_RE.sub(toggle,str(markdown))
+    text=ENVELOPE_COMMENT_RE.sub('',text)
+    return re.sub(r'\n{3,}','\n\n',text).strip('\n')
+
+
 def youtube_canonical(value):
     try:
         url=urlparse(str(value).strip())
