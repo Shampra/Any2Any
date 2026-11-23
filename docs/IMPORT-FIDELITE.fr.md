@@ -139,3 +139,9 @@ Anytype range sa comptabilité interne dans la même table de propriétés que l
 - Une adresse non absolue (sans schéma) est conservée en texte avec l’avertissement « Valeur non absolue pour … conservée en texte », au lieu d’être perdue ou de bloquer la page.
 - Les dates vides ne produisent plus de valeur `$date` invalide.
 - Ces correctifs s’appliquent aux prochains imports.
+
+## Valeurs de relation et messages traduits — complément du 23 novembre 2026
+
+- Une colonne de relation n’accepte qu’un tableau d’URI `any://<objectId>`. Les champs système repris pour les vues en ligne écrivent désormais un tableau, ou basculent en texte avec avertissement lorsque la cible n’est pas importée. L’erreur `property.format_violation : relation value must be an array …` sur les collections n’apparaît plus.
+- Second passage requis pour les valeurs vides : le serveur doit être redémarré après mise à jour, sinon l’ancien module reste en mémoire.
+- Les messages du journal et du bilan (issues, erreurs, progression, analyse) sont traduits par gabarits : les noms d’objets et les identifiants sont réinsérés tels quels. Un rapport entièrement anglais ne contient plus de texte français, hors données source.

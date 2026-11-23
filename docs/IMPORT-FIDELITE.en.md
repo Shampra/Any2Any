@@ -139,3 +139,9 @@ Anytype keeps its internal bookkeeping in the same property map as user values. 
 - A non-absolute address (no scheme) is kept as text with the warning “Valeur non absolue pour … conservée en texte”, instead of being lost or blocking the page.
 - Empty dates no longer produce an invalid `$date` value.
 - These fixes apply to future imports.
+
+## Relation values and translated messages — 23 November 2026 follow-up
+
+- A relation column only accepts an array of `any://<objectId>` URIs. System fields mirrored for inline views now write an array, or fall back to text with a warning when the target is not imported. The `property.format_violation: relation value must be an array …` error no longer appears on collections.
+- A second pass was needed for empty values: the server must be restarted after an update, otherwise the old module stays in memory.
+- Log and report messages (issues, errors, progress, analysis) are translated through templates: object names and identifiers are reinserted verbatim. A fully English report no longer contains French text outside source data.
