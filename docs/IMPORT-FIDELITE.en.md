@@ -145,3 +145,5 @@ Anytype keeps its internal bookkeeping in the same property map as user values. 
 - A relation column only accepts an array of `any://<objectId>` URIs. System fields mirrored for inline views now write an array, or fall back to text with a warning when the target is not imported. The `property.format_violation: relation value must be an array …` error no longer appears on collections.
 - A second pass was needed for empty values: the server must be restarted after an update, otherwise the old module stays in memory.
 - Log and report messages (issues, errors, progress, analysis) are translated through templates: object names and identifiers are reinserted verbatim. A fully English report no longer contains French text outside source data.
+
+- Follow-up: a relation value already stored as a JSON list or a raw identifier is normalized to `any://` URIs before writing. A reference that was not imported is skipped with the warning “Référence de relation non importée : valeur ignorée”, instead of producing `link "[...]" must be a plain any://<objectId> URI`.

@@ -145,3 +145,5 @@ Anytype range sa comptabilité interne dans la même table de propriétés que l
 - Une colonne de relation n’accepte qu’un tableau d’URI `any://<objectId>`. Les champs système repris pour les vues en ligne écrivent désormais un tableau, ou basculent en texte avec avertissement lorsque la cible n’est pas importée. L’erreur `property.format_violation : relation value must be an array …` sur les collections n’apparaît plus.
 - Second passage requis pour les valeurs vides : le serveur doit être redémarré après mise à jour, sinon l’ancien module reste en mémoire.
 - Les messages du journal et du bilan (issues, erreurs, progression, analyse) sont traduits par gabarits : les noms d’objets et les identifiants sont réinsérés tels quels. Un rapport entièrement anglais ne contient plus de texte français, hors données source.
+
+- Complément : une valeur de relation déjà stockée sous forme de liste JSON ou d’identifiant brut est normalisée en URI `any://` avant écriture. Une référence non importée est ignorée avec l’avertissement « Référence de relation non importée : valeur ignorée », au lieu de produire `link "[...]" must be a plain any://<objectId> URI`.

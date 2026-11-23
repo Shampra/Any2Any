@@ -246,6 +246,27 @@ def mapped_relation(value, mapping):
         return None
     return ['any://' + mapping[v] for v in values]
 
+def relation_references(value, mapping):
+    """any:// references from a stored value (URI, raw id, or a JSON list).
+
+    Returns None when a reference was never imported, so callers can skip the
+    write instead of sending a value the destination will reject.
+    """
+    items=value
+    if isinstance(value,str):
+        text=value.strip()
+        if text.startswith('['):
+            try:items=json.loads(text)
+            except ValueError:items=[value]
+        else:items=[value]
+    if not isinstance(items,(list,tuple)) or not items:return None
+    refs=[]
+    for item in items:
+        if not isinstance(item,str):return None
+        if item.startswith('any://'):refs.append(item)
+        elif item in mapping:refs.append('any://'+mapping[item])
+        else:return None
+    return refs
 def titled_link(title, url):
     label=str(title or url).replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
     return f'[{label}]({url})'
@@ -1146,8 +1167,11 @@ class Engine:
                         if len(values)>1:raise UnsupportedView('Valeurs contradictoires pour la propriété source : '+name)
                         if values and target_binding[0] not in self.written_properties.get(oid,{}):
                             written=values[0]
-                            if target_binding[1].get('format')=='objects' and isinstance(written,str):
-                                written=[written]
+                            if target_binding[1].get('format')=='objects':
+                                written=relation_references(written,self.mapping)
+                                if written is None:
+                                    issues.add('Référence de relation non importée : valeur ignorée')
+                                    continue
                             set_column_value(self.target,self.dest_sid,self.mapping[oid],scope,target_binding[0].split('.',1)[1],written)
                 for source_path,_,_ in candidates:mirrored[source_path]=target_binding
                 bindings[name.casefold()]=[target_binding]

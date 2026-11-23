@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 from api_clients import APIError, Anytype, anytype_property_definitions
 from migration import (Engine, render_blocks, declared_column_shape, declared_properties, slug,
-                       custom_properties, import_artifacts, internal_record_property, mapped_relation)
+                       custom_properties, import_artifacts, internal_record_property, mapped_relation,
+                       relation_references)
 from view_conversion import (ViewConverter, UnsupportedView, enrich_descriptor,
                              create_saved_views, modify_records)
 
@@ -307,6 +308,17 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertIsNone(mapped_relation(['a','gone'],mapping))
         self.assertIsNone(mapped_relation([],mapping))
         self.assertIsNone(mapped_relation('gone',mapping))
+
+
+    def test_stored_relation_values_are_normalized_before_writing(self):
+        mapping={'a':'target-a'}
+        self.assertEqual(relation_references('any://target-a',mapping),['any://target-a'])
+        self.assertEqual(relation_references('a',mapping),['any://target-a'])
+        # A JSON list of raw ids is what an unmapped relation leaves in the report.
+        self.assertEqual(relation_references('["a"]',mapping),['any://target-a'])
+        self.assertIsNone(relation_references('["gone"]',mapping))
+        self.assertIsNone(relation_references([],mapping))
+        self.assertIsNone(relation_references(['a',None],mapping))
 
 
 
