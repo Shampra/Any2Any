@@ -44,7 +44,7 @@ The repository and source archive keep launchers at the top level and runtime fi
 ### Connect your source
 
 - **Anytype**: keep Anytype and Anytwo running. Choose **Authorize in Anytype**, then complete the pairing request. Source reads use the local API.
-- **Notion**: create an internal connection with read access and share the pages/databases you want to import with it. Enter the token only in the tool’s local form. Sharing a page containing a linked view may not grant access to its original database. On Windows, the token can be remembered and later forgotten in settings. Internet access is required; the Notion desktop app can remain closed. See the [Notion connection guide (French)](docs/NOTION-API.fr.md).
+- **Notion**: create an internal connection with read access and share the pages/databases you want to import with it. Enter the token only in the tool’s local form. Sharing a page containing a linked view may not grant access to its original database. On Windows, the token can be remembered and later forgotten in settings. Internet access is required; the Notion desktop app can remain closed. See the [Notion connection guide](docs/NOTION-API.en.md).
 
 The API status button at the top right reopens connection settings. **Retrieve files** and **Import linked items** options adapt to the source and selected scope.
 
@@ -54,7 +54,7 @@ The interface listens on `127.0.0.1`, starting at port `8766`. On Windows, setti
 
 ## Known limitations
 
-The applications have different data models. Notion formulas become static results. Buttons, text/background colors, reminders, history and some view or block formats may be adapted or omitted. Notion charts are not imported; grouped inline views may become lists. Compatible collection views preserve grouping, filters and sorting. Galleries preserve **Fit image** and pages use **side peek** unless the source explicitly supplies full-page opening. The app shows source-specific limitations and each report lists detected changes. See [Notion import details (French)](docs/NOTION-IMPORT.fr.md).
+The applications have different data models. Notion formulas become static results. Buttons, text/background colors, reminders, history and some view or block formats may be adapted or omitted. Notion charts are not imported; grouped inline views may become lists. Compatible collection views preserve grouping, filters and sorting. Galleries preserve **Fit image** and pages use **side peek** unless the source explicitly supplies full-page opening. The app shows source-specific limitations and each report lists detected changes. See [Notion import details](docs/NOTION-IMPORT.en.md).
 
 Inline views imported from Anytype require an Anytwo collection as their source. They cannot stay inside block columns. Some dynamic filters and relation restrictions cannot be transferred. The importer skips built-in Anytype widgets, and Notion's public API does not expose its sidebar configuration. Imported tables of contents are static. Underlining and some view layouts depend on the Anytwo version.
 
@@ -64,4 +64,4 @@ Simple imports create new copies on every run, so restarting may create duplicat
 
 This is an independent project and **is not officially affiliated with Anytype, Notion or Anytwo**. Any2Any is distributed under the [GNU GPLv3 license](LICENSE). Copyright (c) 2026 Shampra.
 
-Detailed documentation: [Anytype import](docs/NOTES-TECHNIQUES.fr.md), [Notion import](docs/NOTION-IMPORT.fr.md) and [Notion connection/API](docs/NOTION-API.fr.md) (French). See the [changelog](CHANGELOG.md) for the release history.
+Detailed documentation: [Anytype import](docs/NOTES-TECHNIQUES.en.md), [Notion import](docs/NOTION-IMPORT.en.md) and [Notion connection/API](docs/NOTION-API.en.md). French and English editions of every guide are available. See the [changelog](CHANGELOG.md) for the release history.

@@ -1,5 +1,7 @@
 # Développement isolé Anytype / Notion
 
+**[Français](DEVELOPMENT.fr.md) · [English](DEVELOPMENT.en.md)**
+
 ## État de départ
 
 - Base commune : main, commit `684c8867ac67b6f4752743d23c88040103b19a98`, release 0.9.3.

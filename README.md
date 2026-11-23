@@ -68,4 +68,4 @@ L’import simple crée de nouvelles copies à chaque lancement. Une relance peu
 
 Ce projet est indépendant et **n’est ni officiel ni affilié à Anytype, Notion ou Anytwo**. Any2Any est distribué sous [licence GNU GPLv3](LICENSE). Copyright (c) 2026 Shampra.
 
-Fonctionnement détaillé : [import Anytype](docs/NOTES-TECHNIQUES.fr.md), [import Notion](docs/NOTION-IMPORT.fr.md) et [connexion/API Notion](docs/NOTION-API.fr.md). L’historique des changements est disponible dans le [changelog](CHANGELOG.md).
+Fonctionnement détaillé : [import Anytype](docs/NOTES-TECHNIQUES.fr.md), [import Notion](docs/NOTION-IMPORT.fr.md) et [connexion/API Notion](docs/NOTION-API.fr.md). Chaque guide existe aussi en anglais (`.en.md`). L’historique des changements est disponible dans le [changelog](CHANGELOG.md).

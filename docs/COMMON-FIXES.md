@@ -1,5 +1,7 @@
 # Suivi des correctifs communs
 
+**[Français](COMMON-FIXES.md) · [English](COMMON-FIXES.en.md)**
+
 Base reprise : main / 0.9.3 / 684c8867ac67b6f4752743d23c88040103b19a98.
 
 | Correctif | Commit main | Repris dans Notion | Validation |

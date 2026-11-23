@@ -1,5 +1,7 @@
 # Fidélité des imports — 29 octobre 2026
 
+**[Français](IMPORT-FIDELITE.fr.md) · [English](IMPORT-FIDELITE.en.md)**
+
 Cette passe améliore la fidélité des imports Anytype vers Anytwo. Les README ne contiennent pas de numéro de version.
 
 ## Propriétés
@@ -109,3 +111,11 @@ L’import d’un espace conserve aussi les collections comme pages de navigatio
 Les membres d’une collection importée reçoivent son supertag équivalent et leurs propriétés sont écrites directement dans celui-ci. Un objet membre de plusieurs collections garde ces appartenances ; les propriétés requises sont disponibles dans chacune. Le supertag du type source sert de repli pour les objets hors collection importée, ou de destination explicitement choisie pour un import par type. On ne rajoute plus automatiquement « Page » aux membres d’une collection. Les champs comptables n’apparaissent donc plus dans le supertag de repli de pages qui n’ont qu’un Tag.
 
 Une collection utilise la table native `dataviews/default` et sa première vue `views/default` (les suivantes restent dans la même table). Les propriétés visibles, masquées et leur ordre sont appliqués ; les tris se trouvent dans `query.sort` et dans `query.anyUi.sort`. Les dates source sont conservées dans une propriété de collection, distincte de la date de création de la copie importée. Le Tag peut être défini et renseigné tout en étant masqué dans cette vue. L’hôte de vues existant est réutilisé lors d’un import dans une collection existante. Les largeurs restent locales au client et sont archivées avec avertissement.
+
+## Mentions Anytype — correctif du 23 novembre 2026
+
+- Les mentions en ligne `@` exportées par Anytype sous la forme `<mention object_id="…">Nom</mention>` sont converties en liens d’objet natifs `[Nom](any://o/<espace>/<objet>)`, comme les liens Markdown `anytype://object?objectId=…`. Elles sont prises en charge dans les paragraphes, titres, listes, citations, colonnes, tableaux, cases de tableaux composés et le préfixe de description.
+- Les cibles de mention sont reconnues par la découverte des liens : elles sont importées automatiquement lorsque l’option « Importer également les éléments liés » est active. Avec l’option désactivée, la mention reste le nom affiché en texte brut et un avertissement explicite figure dans le rapport.
+- Une mention dont l’objet n’existe pas dans le périmètre importé conserve son libellé, sans balise visible, et produit l’avertissement « Mention vers un objet non importé ».
+- Le libellé utilise le texte de la mention, puis le nom d’objet connu, puis l’identifiant. Les entités HTML du libellé sont décodées.
+- Ces correctifs s’appliquent aux prochains imports ; les pages déjà copiées ne sont pas réparées automatiquement.
