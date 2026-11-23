@@ -344,6 +344,34 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertNotIn('<!--',plain)
         self.assertEqual(plain, 'Left\n\nRight\n\n[Vidéo](https://youtu.be/x)\n\n![p](file:///a.png)')
 
+    def test_engine_writes_plain_markdown_for_a_newer_client(self):
+        class Source:
+            def object_detail(self, sid, oid):
+                return {'properties':{'name':'Toggled'},
+                        'blocks':[{'type':'toggle','text':'Secret stash'},
+                                  {'type':'paragraph','indent':1,'text':'Hidden note'}]}
+        page={'id':'t','name':'Toggled','type':'character'}
+        inventory={'all':[page],'objects':[page],'collections':[],'members':{},'standalone':[],
+                   'types':[{'id':'type-character','key':'character','name':'Characters','items':[page]}],
+                   'stats':{}}
+        plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
+              'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
+              'mode':'simple','follow_links':False,'files':False}
+        written=[]
+        with patch('migration.create_space',return_value='dest'),\
+             patch('migration.create_collection',return_value='coll1'),\
+             patch('migration.create_object',return_value='new-t'),\
+             patch('migration.anytype_property_definitions',return_value={}),\
+             patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',return_value='prop'),\
+             patch('migration.set_markdown',side_effect=lambda *a: written.append(a[-1])),\
+             patch('anytwo_backend.server_version',return_value=(0,5,0)):
+            events=list(Engine(Source(),object(),inventory,plan).run())
+        self.assertTrue(written)
+        self.assertNotIn('<!--', written[0])
+        self.assertIn('**Secret stash**', written[0])
+        self.assertTrue(any('marqueurs de mise en page' in str(e.get('message','')) for e in events))
+
     def test_envelope_support_follows_the_client_version(self):
         self.assertTrue(envelopes_supported(()))
         self.assertTrue(envelopes_supported((0,4,9)))
