@@ -78,3 +78,5 @@ For every future fix, record the original commit, any adaptations and the tests 
 
 
 - 0.10.1 organization: active folder F:/Documents/ChatGPT/Anytwo/Any2Any, modules and static moved under app, tests/tools/examples/private reports grouped under dev. Launchers and test imports adapted; user profiles unchanged. Clean source archive and standalone Windows x64 distribution (Any2Any.exe, _internal, documentation); EXE checked after extraction before publication, without a real import. Reorganization authorized for the local folder, GitHub and a new release, without rewriting 0.10.0.
+
+- Common fix `03e08b2` for Anytype mentions: `<mention object_id="…">Name</mention>` becomes a native object link `any://o/…` in text, columns, tables, compound cells and the description. Link discovery recognizes mention targets; they join the scope when the linked-items option is enabled, otherwise the label stays plain text with a warning. No backfill of already imported pages. Validation: 278 Python tests passed, including paragraph, table, compound cell, out-of-scope target, empty label and simulation with or without link following.
