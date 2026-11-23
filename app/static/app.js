@@ -492,11 +492,15 @@ function renderFinalReport(report){
   for(const item of report.objects||[]){
     const el=document.createElement('details');el.className='report-item';el.open=item.status!=='imported';
     const summary=document.createElement('summary');
-    summary.textContent=`${item.name} — ${item.status==='imported'?'Importé':item.status==='partial'?'Import partiel':'Échec'} (${(item.reason||[]).join('; ')})`;
+    const name=document.createElement('span');name.className='source-text';name.textContent=item.name;
+    const status=item.status==='imported'?'Importé':item.status==='partial'?'Import partiel':'Échec';
+    summary.append(name,document.createTextNode(' — '),document.createTextNode(status),document.createTextNode(' ('));
+    (item.reason||[]).forEach((reason,index)=>{if(index)summary.append(document.createTextNode('; '));const part=document.createElement('span');part.textContent=reason;summary.append(part);});
+    summary.append(document.createTextNode(')'));
     el.append(summary);
-    if(item.target_id){const i=document.createElement('small');i.textContent='ID Anytwo : '+item.target_id;el.append(i);}
-    for(const issue of item.issues||[]){const p=document.createElement('p');p.className='report-issue';p.textContent='Contenu non reproduit : '+issue;el.append(p);}
-    for(const error of item.errors||[]){const p=document.createElement('p');p.className='report-error';p.textContent='Erreur : '+error;el.append(p);}
+    if(item.target_id){const i=document.createElement('small');const id=document.createElement('span');id.className='source-text';id.textContent=item.target_id;i.append(document.createTextNode('ID Anytwo : '),id);el.append(i);}
+    for(const issue of item.issues||[]){const p=document.createElement('p');p.className='report-issue';const text=document.createElement('span');text.textContent=issue;p.append(document.createTextNode('Contenu non reproduit : '),text);el.append(p);}
+    for(const error of item.errors||[]){const p=document.createElement('p');p.className='report-error';const text=document.createElement('span');text.textContent=error;p.append(document.createTextNode('Erreur : '),text);el.append(p);}
     root.append(el);
   }
   hidden('export-report',false);
@@ -507,7 +511,8 @@ async function startImport(){
   if(!p.target.space_name)return toast('Définissez un espace de destination.');
   if(p.target.collection_mode==='create'&&!p.target.collection_name)return toast('Indiquez le nom de la collection.');
   if(p.target.type_mappings.some(t=>t.collection_mode==='create'&&!t.collection_name))return toast('Indiquez le nom de chaque collection.');
-  if(!window.confirm('Importer dans Anytwo ?\n\nDes espaces, collections, propriétés et objets vont être créés ou complétés. Aucun retour arrière automatique.\n\nIl est conseillé de commencer par un espace de test.'))return;
+  const confirmText=window.Any2AnyI18n?Any2AnyI18n.t('Importer dans Anytwo ?\n\nDes espaces, collections, propriétés et objets vont être créés ou complétés. Aucun retour arrière automatique.\n\nIl est conseillé de commencer par un espace de test.'):'';
+  if(!window.confirm(confirmText||'Importer dans Anytwo ?'))return;
   hidden('log-overlay',false);hidden('import-report',true);hidden('export-report',true);
   $('log-lines').replaceChildren();S.lastReport=null;
   label('log-eyebrow','IMPORT RÉEL');label('log-title','Import Anytype → Anytwo');
@@ -522,7 +527,7 @@ async function startImport(){
       const parts=buf.split('\n');buf=parts.pop();
       for(const line of parts){if(!line.trim())continue;const evt=JSON.parse(line);
         if(evt.event==='message')appendLog(evt.message);
-        else if(evt.event==='object')appendLog(`${evt.name} — ${evt.status} · ${evt.issues.length} adaptation(s), ${evt.errors.length} erreur(s)`);
+        else if(evt.event==='object')appendLog(`${evt.name} — ${evt.status==='imported'?'importé':evt.status==='partial'?'partiel':'échec'} · ${evt.issues.length} adaptation(s), ${evt.errors.length} erreur(s)`);
         else if(evt.event==='summary'){renderFinalReport(evt);hadEnd=true;}
         else if(evt.event==='fatal'){appendLog('! '+evt.message);label('log-status','Import interrompu : modifications partielles possibles.');}
       }
@@ -536,7 +541,9 @@ async function startImport(){
 }
 function appendLog(message){
   const el=document.createElement('div');el.className='log-line '+(message.includes('!')?'warning':message.startsWith('→')?'info':'');
-  el.textContent='› '+message;$('log-lines').append(el);
+  const arrow=document.createElement('span');arrow.className='log-arrow';arrow.textContent='› ';
+  el.append(arrow,document.createTextNode(message));
+  $('log-lines').append(el);
   $('log-lines').scrollTop=$('log-lines').scrollHeight;
   label('log-counter',`${$('log-lines').childElementCount} événement(s)`);
 }

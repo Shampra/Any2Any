@@ -84,6 +84,19 @@
     'L’espace sélectionné est introuvable. Choisissez une destination.':['The selected space could not be found. Choose a destination.','Der ausgewählte Space wurde nicht gefunden. Wähle ein Ziel.'],
     'Couleur de background':['Block background colors','Blockhintergrundfarben'],
     'Types':['Types','Typen'],
+    'Configurer les API':['Configure the APIs','APIs konfigurieren'],
+    'Configurer les API Notion et Anytwo':['Configure the Notion and Anytwo APIs','Notion- und Anytwo-APIs konfigurieren'],
+    'Créer les données sélectionnées dans Anytwo':['Create the selected data in Anytwo','Ausgewählte Daten in Anytwo erstellen'],
+    'Aucune écriture en mode démo':['No writes in demo mode','Keine Schreibvorgänge im Demomodus'],
+    'Tout l’espace':['Entire space','Gesamter Bereich'],
+    'Chaque source de données devient une collection avec son supertag et ses propriétés. Les pages membres reçoivent ce supertag ; les pages ordinaires restent des pages.':['Each data source becomes a collection with its supertag and properties. Member pages receive this supertag; ordinary pages stay pages.','Jede Datenquelle wird zu einer Sammlung mit ihrem Supertag und ihren Eigenschaften. Mitgliedsseiten erhalten dieses Supertag; normale Seiten bleiben Seiten.'],
+    'Vérifiez Anytwo pour choisir ou créer un espace.':['Check Anytwo to choose or create a space.','Prüfen Sie Anytwo, um einen Bereich zu wählen oder zu erstellen.'],
+    'Configurez votre jeton Notion pour continuer.':['Configure your Notion token to continue.','Konfigurieren Sie Ihr Notion-Token, um fortzufahren.'],
+    'Saisissez le jeton et autorisez le contenu dans Notion.':['Enter the token and authorize content in Notion.','Geben Sie das Token ein und geben Sie Inhalte in Notion frei.'],
+    'Notion connecté · Anytwo à vérifier':['Notion connected · Anytwo to check','Notion verbunden · Anytwo zu prüfen'],
+    'nom à renseigner':['name to fill in','Name erforderlich'],
+    'Notion · Source':['Notion · Source','Notion · Quelle'],
+    'Anytwo · Destination':['Anytwo · Destination','Anytwo · Ziel'],
     'Templates':['Templates','Vorlagen'],
     'Propriétés globales':['Global properties','Globale Eigenschaften'],
     'Propriétés locales':['Local properties','Lokale Eigenschaften'],
@@ -200,6 +213,71 @@
     'Erreur : ':['Error: ','Fehler: '],
     'Contenu non reproduit : ':['Content not reproduced: ','Inhalt nicht reproduziert: '],
     'ID Anytwo : ':['Anytwo ID: ','Anytwo-ID: '],
+    'Attention : certains éléments Notion ne pourront pas être importés dans Anytwo.':['Warning: some Notion items cannot be imported into Anytwo.','Achtung: Einige Notion-Elemente können nicht nach Anytwo importiert werden.'],
+    'Choisissez précisément ce que vous souhaitez transférer depuis Notion vers Anytwo.':['Choose exactly what to transfer from Notion to Anytwo.','Wählen Sie genau aus, was von Notion nach Anytwo übertragen werden soll.'],
+    'Types':['Types','Typen'],
+    'Templates':['Templates','Vorlagen'],
+    'Bookmarks':['Bookmarks','Lesezeichen'],
+    'Discussions':['Discussions','Diskussionen'],
+    'Importer dans Anytwo ?\n\nDes espaces, collections, propriétés et objets vont être créés ou complétés. Aucun retour arrière automatique.\n\nIl est conseillé de commencer par un espace de test.':['Import into Anytwo?\n\nSpaces, collections, properties and objects will be created or updated. There is no automatic rollback.\n\nIt is best to start with a test space.','Nach Anytwo importieren?\n\nBereiche, Sammlungen, Eigenschaften und Objekte werden erstellt oder ergänzt. Kein automatisches Zurücksetzen.\n\nBeginnen Sie am besten mit einem Testbereich.'],
+    'Source des données':['Data source','Datenquelle'],
+    'ESPACE NOTION':['NOTION SPACE','NOTION-BEREICH'],
+    'Choisir un espace…':['Choose a space…','Bereich wählen …'],
+    'Ce jeton donne accès à un seul espace. Seul le contenu autorisé est proposé.':['This token grants access to a single space. Only authorized content is offered.','Dieses Token gewährt Zugriff auf einen Bereich. Es wird nur freigegebener Inhalt angeboten.'],
+    'Tout sélectionner dans cet espace':['Select everything in this space','Alles in diesem Bereich auswählen'],
+    'Toutes les racines accessibles et leurs descendants':['All accessible roots and their descendants','Alle verfügbaren Wurzeln und ihre Unterelemente'],
+    'Validez la connexion pour charger les éléments accessibles.':['Validate the connection to load accessible items.','Bestätigen Sie die Verbindung, um verfügbare Elemente zu laden.'],
+    'Sélection sur trois niveaux : racine → niveau 1 → niveau 2. Cocher un élément inclut tous ses descendants, même ceux qui ne sont pas affichés. Les niveaux plus profonds ne sont pas sélectionnables individuellement.':['Three-level selection: root → level 1 → level 2. Checking an item includes all its descendants, even those not displayed. Deeper levels cannot be selected individually.','Auswahl auf drei Ebenen: Wurzel → Ebene 1 → Ebene 2. Das Ankreuzen eines Elements schließt alle Unterelemente ein, auch nicht angezeigte. Tiefere Ebenen sind nicht einzeln auswählbar.'],
+    'Ajouter un élément par son lien ou identifiant':['Add an item by link or ID','Element per Link oder ID hinzufügen'],
+    'Ajouter':['Add','Hinzufügen'],
+    'Sélectionnez un espace, une page ou une base à gauche pour configurer sa destination.':['Select a space, page or database on the left to configure its destination.','Wählen Sie links einen Bereich, eine Seite oder eine Datenbank aus, um das Ziel festzulegen.'],
+    'Destination Anytwo à vérifier':['Anytwo destination to check','Zu prüfendes Anytwo-Ziel'],
+    'COLLECTIONS ET PROPRIÉTÉS':['COLLECTIONS AND PROPERTIES','SAMMLUNGEN UND EIGENSCHAFTEN'],
+    'Les bases intégrées seront affichées par une vue inline dans leur page, avec leurs filtres, tris et propriétés compatibles.':['Embedded databases are shown as an inline view in their page, with compatible filters, sorts and properties.','Eingebettete Datenbanken werden als Inline-Ansicht in ihrer Seite angezeigt, mit kompatiblen Filtern, Sortierungen und Eigenschaften.'],
+    'Importer les éléments liés hors de l’arborescence':['Import linked items outside the tree','Verknüpfte Elemente außerhalb des Baums importieren'],
+    'Les descendants des éléments choisis sont toujours inclus. Cette option étend le périmètre aux pages liées.':['Descendants of selected items are always included. This option extends the scope to linked pages.','Unterelemente ausgewählter Elemente sind immer enthalten. Diese Option erweitert den Umfang auf verknüpfte Seiten.'],
+    'Vérifier la sélection et sa compatibilité sans écriture':['Check the selection and its compatibility without writing','Auswahl und Kompatibilität ohne Schreiben prüfen'],
+    'Choisissez une sélection et une destination':['Choose a selection and a destination','Wählen Sie eine Auswahl und ein Ziel'],
+    'Tester vérifie la sélection sans écriture. Importer crée une copie dans Anytwo ; Notion reste inchangé. Une interruption conserve les éléments déjà créés. Un nouvel import crée une copie supplémentaire.':['Test checks the selection without writing. Import creates a copy in Anytwo; Notion stays unchanged. An interruption keeps already created items. A new import creates another copy.','Testen prüft die Auswahl ohne Schreiben. Importieren erstellt eine Kopie in Anytwo; Notion bleibt unverändert. Eine Unterbrechung behält bereits erstellte Elemente. Ein neuer Import erstellt eine weitere Kopie.'],
+    'Bilan de vérification Notion':['Notion check report','Notion-Prüfbericht'],
+    'Préparation de l’analyse…':['Preparing analysis…','Analyse wird vorbereitet …'],
+    'Lecture seule : aucune écriture dans Notion ou Anytwo.':['Read-only: no writes to Notion or Anytwo.','Nur Lesen: keine Schreibvorgänge in Notion oder Anytwo.'],
+    'Annuler':['Cancel','Abbrechen'],
+    'Traitement local · Notion reste en lecture seule · L’import modifie Anytwo':['Local processing · Notion stays read-only · Import changes Anytwo','Lokale Verarbeitung · Notion bleibt schreibgeschützt · Der Import ändert Anytwo'],
+    'Fermer le chargement et continuer en arrière-plan':['Close loading and continue in the background','Laden schließen und im Hintergrund fortfahren'],
+    'Chargement des données Notion':['Loading Notion data','Notion-Daten werden geladen'],
+    'Récupération des éléments de premier niveau…':['Retrieving top-level items…','Elemente der obersten Ebene werden abgerufen …'],
+    'Vous pouvez fermer cette fenêtre pour faire autre chose. La recherche continue en arrière-plan.':['You can close this window to do something else. The search continues in the background.','Sie können dieses Fenster schließen und etwas anderes tun. Die Suche läuft im Hintergrund weiter.'],
+    'Continuer sans attendre':['Continue without waiting','Ohne Warten fortfahren'],
+    'Connexion à Notion et Anytwo':['Notion and Anytwo connection','Verbindung zu Notion und Anytwo'],
+    'Notion via Internet · Anytwo sur cet ordinateur':['Notion over the Internet · Anytwo on this computer','Notion über das Internet · Anytwo auf diesem Computer'],
+    'Configurez les accès aux applications.':['Configure access to the applications.','Konfigurieren Sie den Zugang zu den Anwendungen.'],
+    'Jeton de connexion interne Notion':['Notion internal connection token','Internes Verbindungs-Token von Notion'],
+    'Saisir le jeton ici, jamais dans le chat':['Enter the token here, never in the chat','Token hier eingeben, niemals im Chat'],
+    'Un jeton mémorisé est disponible sur cet ordinateur. Vous pouvez valider la connexion sans le saisir à nouveau.':['A remembered token is available on this computer. You can validate the connection without entering it again.','Auf diesem Computer ist ein gemerktes Token verfügbar. Sie können die Verbindung ohne erneute Eingabe bestätigen.'],
+    'Mémoriser sur cet ordinateur (protection Windows)':['Remember on this computer (Windows protection)','Auf diesem Computer merken (Windows-Schutz)'],
+    'Valider la connexion':['Validate connection','Verbindung bestätigen'],
+    'Oublier le jeton':['Forget token','Token vergessen'],
+    'Non connecté.':['Not connected.','Nicht verbunden.'],
+    'Connexion à l’API Notion via Internet : l’application Notion peut rester fermée.':['Notion API connection over the Internet: the Notion app can stay closed.','Notion-API-Verbindung über das Internet: die Notion-App kann geschlossen bleiben.'],
+    'Comment autoriser le contenu ?':['How to authorize content?','Wie wird Inhalt freigegeben?'],
+    'Créez une connexion interne Any2Any dans le portail développeur Notion, avec la capacité de lecture du contenu. Dans « Content access », autorisez les pages et bases voulues. Aucun droit d’insertion ou de modification n’est nécessaire.':['Create an Any2Any internal connection in the Notion developer portal with the read content capability. In “Content access”, authorize the pages and databases you need. No insert or update permission is required.','Erstellen Sie im Notion-Entwicklerportal eine interne Any2Any-Verbindung mit der Berechtigung zum Lesen von Inhalten. Erlauben Sie unter „Content access“ die gewünschten Seiten und Datenbanken. Eine Schreibberechtigung ist nicht erforderlich.'],
+    'Guide officiel Notion':['Official Notion guide','Offizieller Notion-Leitfaden'],
+    'Sans mémorisation, le jeton reste uniquement dans la session du serveur local. Une connexion interne est propre à un espace Notion.':['Without remembering, the token stays only in the local server session. An internal connection belongs to a single Notion space.','Ohne Merken bleibt das Token nur in der Sitzung des lokalen Servers. Eine interne Verbindung gehört zu einem Notion-Bereich.'],
+    'Ouvrez Anytwo et autorisez son API locale pour choisir la destination.':['Open Anytwo and authorize its local API to choose the destination.','Öffnen Sie Anytwo und erlauben Sie die lokale API, um das Ziel zu wählen.'],
+    'Port de l’API Anytwo':['Anytwo API port','Anytwo-API-Port'],
+    'Détection automatique':['Automatic detection','Automatische Erkennung'],
+    'Enregistrer et vérifier Anytwo':['Save and check Anytwo','Anytwo speichern und prüfen'],
+    'Accès Anytwo à vérifier.':['Anytwo access to check.','Anytwo-Zugriff zu prüfen.'],
+    'Afficher le chargement':['Show loading','Laden anzeigen'],
+    'Continuer':['Continue','Weiter'],
+    'Arborescence Notion':['Notion tree','Notion-Baum'],
+    'Import depuis Notion':['Notion import','Import aus Notion'],
+    'Import interrompu : le bilan ci-dessous est partiel. Les créations déjà effectuées ne sont pas annulées.':['Import interrupted: the report below is partial. Items already created are not rolled back.','Import unterbrochen: Der Bericht unten ist unvollständig. Bereits erstellte Elemente werden nicht zurückgesetzt.'],
+    'Import interrompu · bilan partiel ci-dessous.':['Import interrupted · partial report below.','Import unterbrochen · unvollständiger Bericht unten.'],
+    'Import interrompu : modifications partielles possibles.':['Import interrupted: partial changes may exist.','Import unterbrochen: Teiländerungen möglich.'],
+    'Import interrompu · modifications partielles possibles.':['Import interrupted · partial changes may exist.','Import unterbrochen · Teiländerungen möglich.'],
+    'Lecture des données, simulation en cours…':['Reading data, simulation in progress…','Daten werden gelesen, Simulation läuft …'],
   };
   const params=[
     [/^Créer l’espace « (.*) »$/,(v,l)=>l==='en'?`Create space “${v}”`:`Bereich „${v}“ erstellen`],
@@ -213,6 +291,65 @@
     [/^(\d+) événement\(s\)$/,(v,l)=>l==='en'?`${v} events`:`${v} Ereignisse`],
     [/^(\d+) événement$/,(v,l)=>l==='en'?`${v} event`:`${v} Ereignis`],
     [/^Bilan : (\d+) objet\(s\), (\d+) complet\(s\), (\d+) partiel\(s\), (\d+) erreur\(s\)$/,(a,b,c,d,l)=>l==='en'?`Report: ${a} objects, ${b} complete, ${c} partial, ${d} errors`:`Bericht: ${a} Objekte, ${b} vollständig, ${c} teilweise, ${d} Fehler`],
+    [/^(.+) — (importé|partiel|échec) · (\d+) adaptation\(s\), (\d+) erreur\(s\)$/,(n,s,a,e,l)=>{const st=l==='en'?({['importé']:'imported',['partiel']:'partial',['échec']:'failed'})[s]:({['importé']:'importiert',['partiel']:'teilweise',['échec']:'fehlgeschlagen'})[s];return l==='en'?`${n} — ${st} · ${a} adaptation(s), ${e} error(s)`:`${n} — ${st} · ${a} Anpassung(en), ${e} Fehler`;}],
+    [/^Espace Anytwo : (.+) \((créé|existant)\)\.$/,(n,s,l)=>{const st=l==='en'?(s==='créé'?'created':'existing'):(s==='créé'?'erstellt':'vorhanden');return l==='en'?`Anytwo space: ${n} (${st}).`:`Anytwo-Bereich: ${n} (${st}).`;}],
+    [/^Lecture de (\d+) objets source · (\d+) avertissement\(s\)\.$/,(a,b,l)=>l==='en'?`Reading ${a} source objects · ${b} warning(s).`:`${a} Quellobjekte werden gelesen · ${b} Warnung(en).`],
+    [/^Créé : (.+)$/,(n,l)=>l==='en'?`Created: ${n}`:`Erstellt: ${n}`],
+    [/^! Création impossible « (.+) » : ([\s\S]+)$/,(n,e,l)=>l==='en'?`! Could not create “${n}”: ${e}`:`! Erstellen von „${n}“ nicht möglich: ${e}`],
+    [/^Collection « (.+) » → (.+)$/,(n,id,l)=>l==='en'?`Collection “${n}” → ${id}`:`Sammlung „${n}“ → ${id}`],
+    [/^(\d+) chat\(s\) à importer en archives\.$/,(n,l)=>l==='en'?`${n} chat(s) to import as archives.`:`${n} Chat(s) als Archive zu importieren.`],
+    [/^Overview Anytwo : (\d+) widget\(s\) ajouté\(s\), (\d+) déjà présent\(s\)\.$/,(a,b,l)=>l==='en'?`Anytwo Overview: ${a} widget(s) added, ${b} already present.`:`Anytwo-Overview: ${a} Widget(s) hinzugefügt, ${b} bereits vorhanden.`],
+    [/^Propriétés techniques Anytype retirées : (.+)\.$/,(n,l)=>l==='en'?`Anytype bookkeeping properties removed: ${n}.`:`Anytype-Hilfseigenschaften entfernt: ${n}.`],
+    [/^! ([\s\S]+)$/,(m,l)=>l==='en'?`! ${m}`:`! ${m}`],
+    [/^Erreur générale : ([\s\S]+)$/,(m,l)=>l==='en'?`General error: ${m}`:`Allgemeiner Fehler: ${m}`],
+    [/^Contenu non reproduit : ([\s\S]+)$/,(m,l)=>l==='en'?`Content not reproduced: ${m}`:`Inhalt nicht reproduziert: ${m}`],
+    [/^Erreur : ([\s\S]+)$/,(m,l)=>l==='en'?`Error: ${m}`:`Fehler: ${m}`],
+    [/^ID Anytype : (.+)$/,(m,l)=>l==='en'?`Anytype ID: ${m}`:`Anytype-ID: ${m}`],
+    [/^Sélectionné via l’espace « (.+) »$/,(n,l)=>l==='en'?`Selected through the space “${n}”`:`Über den Bereich „${n}“ ausgewählt`],
+    [/^Sélectionné via la collection « (.+) »$/,(n,l)=>l==='en'?`Selected through the collection “${n}”`:`Über die Sammlung „${n}“ ausgewählt`],
+    [/^Sélectionné via le type « (.+) »$/,(n,l)=>l==='en'?`Selected through the type “${n}”`:`Über den Typ „${n}“ ausgewählt`],
+    [/^Sélectionné individuellement$/,(l)=>l==='en'?'Selected individually':'Einzeln ausgewählt'],
+    [/^Lié à « (.+) »$/,(n,l)=>l==='en'?`Linked to “${n}”`:`Verknüpft mit „${n}“`],
+    [/^Document de la vue intégrée de « (.+) »$/,(n,l)=>l==='en'?`Document of the inline view of “${n}”`:`Dokument der Inline-Ansicht von „${n}“`],
+    [/^Lié indirectement à la sélection$/,(l)=>l==='en'?'Indirectly linked to the selection':'Indirekt mit der Auswahl verknüpft'],
+    [/^Option archive des chats de l’espace source$/,(l)=>l==='en'?'Source space chat archive option':'Archivoption für Chats des Quellbereichs'],
+    [/^Propriété « (.+) » conservée en texte \(format non transposable\)$/,(n,l)=>l==='en'?`Property “${n}” kept as text (format cannot be mapped)`:`Eigenschaft „${n}“ als Text beibehalten (Format nicht übertragbar)`],
+    [/^Référence externe dans la propriété « (.+) » conservée en texte$/,(n,l)=>l==='en'?`External reference in property “${n}” kept as text`:`Externe Referenz in Eigenschaft „${n}“ als Text beibehalten`],
+    [/^Restriction de types de « (.+) » archivée : certains types cibles ne sont pas importés$/,(n,l)=>l==='en'?`Type restriction of “${n}” archived: some target types are not imported`:`Typeinschränkung von „${n}“ archiviert: Einige Zieltypen werden nicht importiert`],
+    [/^Propriété « (.+) » : même nom mais format différent dans la collection cible$/,(n,l)=>l==='en'?`Property “${n}”: same name but a different format in the target collection`:`Eigenschaft „${n}“: gleicher Name, aber anderes Format in der Zielsammlung`],
+    [/^Couleur des cellules du tableau non reproduite$/,(l)=>l==='en'?'Table cell color not reproduced':'Zellfarbe der Tabelle nicht reproduziert'],
+    [/^Couleur d’arrière-plan de bloc$/,(l)=>l==='en'?'Block background color':'Hintergrundfarbe des Blocks'],
+    [/^Couverture ajoutée dans la page \(présentation d’origine non reproduite\)$/,(l)=>l==='en'?'Cover added inside the page (original presentation not reproduced)':'Titelbild in die Seite eingefügt (ursprüngliche Darstellung nicht reproduziert)'],
+    [/^Propriété intégrée à la page non reproduite$/,(l)=>l==='en'?'Property embedded in the page not reproduced':'In die Seite eingebettete Eigenschaft nicht reproduziert'],
+    [/^Collection \/ vue intégrée non reproduite$/,(l)=>l==='en'?'Embedded collection / view not reproduced':'Eingebettete Sammlung / Ansicht nicht reproduziert'],
+    [/^Disposition en colonnes simplifiée$/,(l)=>l==='en'?'Column layout simplified':'Spaltenlayout vereinfacht'],
+    [/^Disposition en colonnes non reconstruite : contenu conservé en séquence$/,(l)=>l==='en'?'Column layout not rebuilt: content kept in sequence':'Spaltenlayout nicht rekonstruiert: Inhalt in Reihenfolge beibehalten'],
+    [/^Colonnes préservées en HTML \(rendu à vérifier dans Anytwo\)$/,(l)=>l==='en'?'Columns preserved as HTML (rendering to check in Anytwo)':'Spalten als HTML beibehalten (Darstellung in Anytwo prüfen)'],
+    [/^Vue limitée au périmètre importé : (\d+) membre\(s\) source non importé\(s\)$/,(n,l)=>l==='en'?`View limited to the imported scope: ${n} source member(s) not imported`:`Ansicht auf den importierten Umfang begrenzt: ${n} Quellmitglied(er) nicht importiert`],
+    [/^Vue non convertie : ([\s\S]+)$/,(m,l)=>l==='en'?`View not converted: ${m}`:`Ansicht nicht konvertiert: ${m}`],
+    [/^Largeur relative d’image approximée sur une largeur de bloc de référence de (\d+) px$/,(n,l)=>l==='en'?`Relative image width approximated on a ${n} px reference block`:`Relative Bildbreite auf einen Referenzblock von ${n} px angenähert`],
+    [/^Soulignement\/exposant\/indice non pris en charge par l’import Markdown Anytwo : texte conservé sans balises$/,(l)=>l==='en'?'Underline/superscript/subscript not supported by the Anytwo Markdown import: text kept without tags':'Unterstreichung/Hoch-/Tiefstellung vom Anytwo-Markdown-Import nicht unterstützt: Text ohne Tags beibehalten'],
+    [/^Fichiers non importés \(option désactivée\)$/,(l)=>l==='en'?'Files not imported (option disabled)':'Dateien nicht importiert (Option deaktiviert)'],
+    [/^Valeur vide ignorée pour la propriété « (.+) »$/,(n,l)=>l==='en'?`Empty value ignored for property “${n}”`:`Leerer Wert für Eigenschaft „${n}“ ignoriert`],
+    [/^Valeur non absolue pour « (.+) » conservée en texte$/,(n,l)=>l==='en'?`Non-absolute value for “${n}” kept as text`:`Nicht absoluter Wert für „${n}“ als Text beibehalten`],
+    [/^Mention vers un objet non importé$/,(l)=>l==='en'?'Mention of an object that was not imported':'Erwähnung eines nicht importierten Objekts'],
+    [/^Lien vers un objet non importé$/,(l)=>l==='en'?'Link to an object that was not imported':'Link zu einem nicht importierten Objekt'],
+    [/^API connectée, accès autorisé\.$/,(l)=>l==='en'?'API connected, access authorized.':'API verbunden, Zugriff autorisiert.'],
+    [/^API connectée sur le port (\d+) · (\d+) espace\(s\) visible\(s\)\.$/,(port,n,l)=>l==='en'?`API connected on port ${port} · ${n} visible space(s).`:`API verbunden auf Port ${port} · ${n} sichtbare(r) Bereich(e).`],
+    // Prefixes are separate nodes; the renderer trims their trailing space.
+    [/^Erreur :$/, (l)=>l==='en'?'Error: ':'Fehler: '],
+    [/^Erreur générale :$/, (l)=>l==='en'?'General error: ':'Allgemeiner Fehler: '],
+    [/^Contenu non reproduit :$/, (l)=>l==='en'?'Content not reproduced: ':'Inhalt nicht reproduziert: '],
+    [/^ID Anytwo :$/, (l)=>l==='en'?'Anytwo ID: ':'Anytwo-ID: '],
+    [/^ID Anytype :$/, (l)=>l==='en'?'Anytype ID: ':'Anytype-ID: '],
+    [/^Propriété « (.+) » : ([\s\S]+)$/,(n,m,l)=>l==='en'?`Property “${n}”: ${m}`:`Eigenschaft „${n}“: ${m}`],
+    [/^Fichier de propriété « (.+) » : ([\s\S]+)$/,(n,m,l)=>l==='en'?`Property file “${n}”: ${m}`:`Eigenschaftsdatei „${n}“: ${m}`],
+    [/^(\d+) branches sélectionnées$/,(n,l)=>l==='en'?`${n} branches selected`:`${n} Zweige ausgewählt`],
+    [/^(\d+) branche\(s\) sélectionnée\(s\), (\d+) exclusion\(s\)\. Les pages seront comptées lors de l’analyse\.$/,(a,b,l)=>l==='en'?`${a} branch(es) selected, ${b} exclusion(s). Pages are counted during analysis.`:`${a} Zweig(e) ausgewählt, ${b} Ausnahme(n). Seiten werden bei der Analyse gezählt.`],
+    [/^(\d+) page\(s\) dans la sélection analysée\.$/,(n,l)=>l==='en'?`${n} page(s) in the analyzed selection.`:`${n} Seite(n) in der analysierten Auswahl.`],
+    [/^Espace à créer : (.+)$/,(n,l)=>l==='en'?`Space to create: ${n}`:`Zu erstellender Bereich: ${n}`],
+    [/^Espace existant : (.+)$/,(n,l)=>l==='en'?`Existing space: ${n}`:`Vorhandener Bereich: ${n}`],
+    [/^Bilan de vérification$/,(l)=>l==='en'?'Check report':'Prüfbericht'],
     [/^(.*) · (\d+) occurrence\(s\)$/,(a,b,l)=>l==='en'?`${a} · ${b} occurrence(s)`:`${a} · ${b} Vorkommen`],
   ];
   function detect(){let explicit='';try{explicit=localStorage.getItem(STORAGE_KEY)||'';}catch(e){}
@@ -224,11 +361,17 @@
   function translate(source, into=lang){
     if(into==='fr'||typeof source!=='string')return source;
     if(Object.prototype.hasOwnProperty.call(messages,source))return messages[source][into==='en'?0:1];
+    // Markup often carries a non-breaking space; dictionaries use a plain one.
+    if(source.includes('\u00a0')){
+      const flat=source.replace(/\u00a0/g,' ');
+      if(Object.prototype.hasOwnProperty.call(messages,flat))return messages[flat][into==='en'?0:1];
+    }
     for(const [rx,formatter] of params){const found=source.match(rx);if(found)return formatter(...found.slice(1),into);}
     return source;
   }
   function ignored(el){
-    return !!el.closest('#source-space, #selected-name, #custom-space, #custom-collection, .item-name, .report-item summary, .report-issue, .report-error, .log-lines, .type-map-head strong, .item-count');
+    // Source data (object names, server diagnostics) must never be rewritten.
+    return !!el.closest('#source-space, #selected-name, #custom-space, #custom-collection, .item-name, .source-text, .type-map-head strong, .item-count, .log-arrow');
   }
   function transformText(node){
     const parent=node.parentElement;if(!parent || ignored(parent)||['SCRIPT','STYLE','TEXTAREA'].includes(parent.tagName))return;
@@ -239,8 +382,12 @@
     const result=m[1]+translated+m[3];originals.set(node,{source,last:result});
     if(result!==current)node.nodeValue=result;
   }
+  function ignoredAttr(el){
+    // Labels stay translatable on containers whose text is source data.
+    return !!el.closest('.source-text');
+  }
   function transformAttr(el,attribute){
-    if(ignored(el))return;
+    if(ignoredAttr(el))return;
     const current=el.getAttribute(attribute);if(!current)return;
     let map=attrs.get(el);if(!map){map={};attrs.set(el,map);}
     const old=map[attribute],source=old && (current===old.last||current===old.source)?old.source:current;

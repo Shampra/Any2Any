@@ -121,3 +121,10 @@
 .source-dialog{width:min(100%,560px);padding:32px}.source-buttons{display:grid;grid-template-columns:1fr 1fr;gap:16px}.source-app-button{border:1px solid #ddd8f1;border-radius:12px;background:#faf9ff;padding:26px 16px;text-align:center;color:#39324c;cursor:pointer}.source-app-button strong{display:block;font-size:20px;margin-bottom:10px}.source-app-button span{display:block;font-size:12px;line-height:1.5;color:#716a83}.source-app-button:hover{border-color:#8b73df;background:#f1edff}.source-app-button:focus-visible{outline:3px solid #a391e8;outline-offset:3px}.source-app-button:disabled{opacity:.55;cursor:wait}.source-dialog .dialog-head p{line-height:1.6}@media(max-width:450px){.source-buttons{grid-template-columns:1fr}}
 
 .brand-title small{font-size:11px;font-weight:500;color:#8e97a9;margin-left:5px}
+
+/* Import log dialog: always fit the viewport instead of forcing a zoom out. */
+.log-dialog{width:min(100%,820px);max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);display:flex;flex-direction:column;overflow:hidden}
+.log-dialog .log-head,.log-dialog .dialog-footer{flex:0 0 auto}
+.log-dialog .log-lines{flex:1 1 auto;height:auto;min-height:120px;max-height:none}
+.log-dialog .import-report{flex:0 1 auto;max-height:min(32vh,340px);margin:0 18px 6px}
+@media(max-height:640px){.log-dialog .log-lines{min-height:80px}.log-dialog .import-report{max-height:26vh}}
