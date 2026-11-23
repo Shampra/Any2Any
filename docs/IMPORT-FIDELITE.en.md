@@ -102,7 +102,7 @@ Reading follows `next_before`, without `offset`. Incomplete, inconsistent histor
 
 A global Anytype property can be written into several target supertags when objects have different types. These locations do not define different source properties: in a collection or inline view, their values are merged into a single column bearing the source name. Select values are translated by label when target keys differ. A contradiction between values or between same-named source identities causes an explicit report; no technical suffix is invented. Property references belonging only to types outside the scope are ignored.
 
-The source green `lime` is translated to `green`, recognized by the Anytwo client; the source palette includes `green` but not `lime`. The value `gray` is normalized to `grey`.
+The source green `lime` is translated to `green`, recognized by the Anytwo client; the client's palette includes `green` but not `lime`. The value `gray` is normalized to `grey`.
 
 Importing a space also preserves collections as navigation pages with their inline views. Memberships in parent collections use the source document's `collection_items` identifiers, even if the endpoint listing members omits nested collections. A collection membership does not automatically mean that every page displaying that collection in an inline view belongs to the same parent.
 
