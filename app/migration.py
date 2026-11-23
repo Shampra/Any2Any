@@ -29,7 +29,8 @@ from api_clients import APIError, anytype_download, anytype_property_definitions
 from anytwo_backend import (
                          create_space, create_collection, create_object, list_columns,
                          add_column, set_column_value, set_markdown, append_markdown,
-                         attach_file, get_file_info, create_editor_block, add_membership, target_write, local_get, _segment)
+                         attach_file, get_file_info, create_editor_block, add_membership,
+                         delete_column, target_write, local_get, _segment)
 from chat_archives import histories as chat_histories, markdown as chat_markdown
 from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation, INLINE_MENTION_RE
 
@@ -143,6 +144,49 @@ def display(doc, fallback):
     return str(name or doc.get('name') or fallback)
 
 
+# Anytype stores its own record bookkeeping in the same property map as user
+# values. These keys describe the record itself (import provenance, template
+# prefill, cover geometry...) rather than user data, so importing them only
+# creates junk columns. Matching is by identifier, never by user label.
+INTERNAL_RECORD_PROPERTIES = frozenset({
+    'import_type', 'source_object', 'template_name_prefill_type',
+    'unique_key', 'default_template_id', 'default_type_id', 'default_view_type',
+    'size_in_bytes', 'deletion_change_id', 'internal_flags',
+    'featured_relations', 'recommended_relations', 'recommended_featured_relations',
+    'recommended_hidden_relations', 'recommended_file_relations', 'recommended_layout',
+    'header_relations_layout', 'set_of', 'order_id',
+    'cover_id', 'cover_type', 'cover_x', 'cover_y', 'cover_scale',
+    'icon_name', 'icon_option', 'plural_name', 'layout_width',
+})
+# Anytype template internals share this prefix; user property keys are ids.
+INTERNAL_RECORD_PREFIXES = ('template_',)
+
+
+def internal_record_property(identifier):
+    """True for Anytype record bookkeeping keys that are never user columns."""
+    key = str(identifier or '').replace('-', '_').replace(' ', '_').casefold()
+    return bool(key) and (key in INTERNAL_RECORD_PROPERTIES
+                          or key.startswith(INTERNAL_RECORD_PREFIXES))
+
+
+def import_artifacts(doc, vocabulary=None):
+    """Labels of bookkeeping properties present in a source document.
+
+    Only identifiers Anytype itself declares are returned, so a same-named
+    user column is never reported as an artifact.
+    """
+    props = doc.get('properties')
+    if not isinstance(props, dict): return {}
+    aliases = doc.get('property_internal_keys') or {}
+    found = {}
+    for key in props:
+        if not internal_record_property(key): continue
+        internal = str(aliases.get(key) or key)
+        meta = (vocabulary or {}).get(internal.casefold()) or {}
+        found[str(meta.get('name') or internal)] = internal
+    return found
+
+
 def internal_property(name, vocabulary=None, doc=None):
     """Exclude documented system keys and explicitly hidden Anytype metadata.
 
@@ -168,7 +212,8 @@ def custom_properties(doc, vocabulary=None):
     props = doc.get('properties')
     if not isinstance(props, dict): return {}
     return {str(key): value for key, value in props.items()
-            if not internal_property(key, vocabulary, doc) and value is not None}
+            if not internal_record_property(key) and not internal_property(key, vocabulary, doc)
+            and value is not None}
 
 
 def is_bookmark(obj, doc=None):
@@ -791,7 +836,10 @@ def declared_properties(type_document, vocabulary):
         meta = vocabulary.get(key.casefold()) or {}
         label = str(raw.get('name') or meta.get('name') or key)
         normalized = label.casefold().replace('-', '_').replace(' ', '_')
-        if internal_property(label, vocabulary) or internal_property(key, vocabulary) or key.casefold() in seen: continue
+        if (internal_record_property(key) or internal_record_property(raw.get('internal_key'))
+                or internal_property(label, vocabulary) or internal_property(key, vocabulary)
+                or key.casefold() in seen):
+            continue
         fmt = str(raw.get('format') or meta.get('format') or 'text').casefold()
         options = raw.get('options') or meta.get('options') or []
         seen.add(key.casefold())
@@ -860,6 +908,40 @@ class Engine:
     def emit(self, event, **data): return {'event':event, **data}
 
     def warn(self, oid, message): self.results[oid]['issues'].add(message)
+
+    def remove_import_artifacts(self, documents, vocabulary):
+        """Drop Anytwo columns that only mirror Anytype import bookkeeping.
+
+        Only identifiers the source itself declares are matched, and only
+        importer-created collections are cleaned, so user columns are never
+        touched. Returns the removed columns for the report.
+        """
+        artifacts = {}
+        for doc in documents:
+            artifacts.update(import_artifacts(doc, vocabulary))
+        if not artifacts: return []
+        names = {label.casefold() for label in artifacts}
+        names.update(key.casefold() for key in artifacts.values())
+        removed = []
+        created = {cid for cid in self.col_cache.values() if cid not in self.existing_collections}
+        for cid in sorted(created):
+            try:
+                columns = list_columns(self.target, self.dest_sid, cid)
+            except (APIError, ValueError, TypeError, KeyError):
+                continue
+            for column in columns:
+                label = str(column.get('name') or '')
+                if label.casefold() not in names: continue
+                prop_id = str(column.get('id') or '')
+                if not prop_id: continue
+                try:
+                    delete_column(self.target, self.dest_sid, cid, prop_id)
+                except (APIError, ValueError, TypeError) as exc:
+                    self.report.setdefault('artifact_warnings', []).append(
+                        f'Colonne technique « {label} » non supprimée : {exc}')
+                    continue
+                removed.append({'name': label, 'collection_id': cid, 'property_id': prop_id})
+        return removed
 
     def import_widgets(self, entries, docs):
         from anytwo_backend import add_overview_widgets
@@ -1019,6 +1101,7 @@ class Engine:
                 if name not in names:names.append(name)
         for name in names:
             if name.casefold()=='name':continue
+            if name!='type' and internal_record_property(name):continue
             candidates=[] if name=='type' else converter.bindings.get(name.casefold(),[])
             if included:
                 owners={owner for oid in included for owner in self.memberships.get(oid,set())}
@@ -1649,6 +1732,11 @@ class Engine:
                 r['status']='partial' if r['issues'] else 'imported'
             except (APIError,ValueError,TypeError,KeyError) as exc:r['errors'].append(str(exc))
             yield self.emit('object',**{**r,'issues':sorted(r['issues'])})
+        removed = self.remove_import_artifacts(list(docs.values()), metadata)
+        if removed:
+            self.report['removed_properties'] = removed
+            yield self.emit('message', message='Propriétés techniques Anytype retirées : '
+                            + ', '.join(sorted({item['name'] for item in removed})) + '.')
         widgets = self.import_widgets(entries, docs)
         if widgets:
             self.report['widgets'] = widgets

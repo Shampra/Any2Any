@@ -119,3 +119,16 @@ Une collection utilise la table native `dataviews/default` et sa première vue `
 - Une mention dont l’objet n’existe pas dans le périmètre importé conserve son libellé, sans balise visible, et produit l’avertissement « Mention vers un objet non importé ».
 - Le libellé utilise le texte de la mention, puis le nom d’objet connu, puis l’identifiant. Les entités HTML du libellé sont décodées.
 - Ces correctifs s’appliquent aux prochains imports ; les pages déjà copiées ne sont pas réparées automatiquement.
+
+## Propriétés techniques Anytype — correctif du 23 novembre 2026
+
+Anytype range sa comptabilité interne dans la même table de propriétés que les valeurs utilisateur. Ces clés ne sont jamais des colonnes créées par l’utilisateur :
+
+- `source_object` (provenance d’un objet importé dans Anytype) ;
+- `template_name_prefill_type` et toutes les clés préfixées `template_` (réglages de préremplissage des modèles) ;
+- `import_type`, `unique_key`, `default_template_id`, `default_type_id`, `default_view_type`, `size_in_bytes`, `deletion_change_id`, `internal_flags`, `featured_relations`, `recommended_relations`, `recommended_*_relations`, `recommended_layout`, `header_relations_layout`, `set_of`, `order_id`, `cover_*`, `icon_name`, `icon_option`, `plural_name`, `layout_width`.
+
+- Ces identifiants sont reconnus par **clé**, jamais par libellé : une propriété utilisateur dont le nom ressemble à « Source object » mais dont la clé est un identifiant généré reste importée.
+- Ils ne sont plus importés comme colonnes ni comme valeurs, y compris lorsqu’ils apparaissent dans le schéma d’un type ou dans les filtres d’une vue intégrée.
+- Filet de sécurité : à la fin de l’import, les colonnes portant ces noms dans les collections créées par cet import sont supprimées via `DELETE /v1/spaces/:spaceId/collections/:collectionId/properties/:propId`. Les collections de destination réutilisées ne sont pas nettoyées, afin de ne jamais supprimer une colonne existante de l’utilisateur. Les suppressions éventuelles figurent dans `removed_properties` du rapport JSON.
+- Les objets déjà importés ne sont pas réparés automatiquement : relancer un import crée de nouvelles copies.

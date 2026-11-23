@@ -4,7 +4,8 @@ import unittest
 from unittest.mock import patch
 
 from api_clients import APIError, Anytype, anytype_property_definitions
-from migration import Engine, render_blocks, declared_column_shape, declared_properties, slug
+from migration import (Engine, render_blocks, declared_column_shape, declared_properties, slug,
+                       custom_properties, import_artifacts, internal_record_property)
 from view_conversion import (ViewConverter, UnsupportedView, enrich_descriptor,
                              create_saved_views, modify_records)
 
@@ -195,6 +196,77 @@ class FidelityTests(unittest.TestCase):
                 [{'id':'tag','name':'Ready','color':'teal'}]]):
             result=anytype_property_definitions(Anytype(1,'key'),'s')
         self.assertEqual(result['state']['options'][0]['color'],'teal')
+
+
+class ImportArtifactTests(unittest.TestCase):
+    """Anytype record bookkeeping must never become an Anytwo column."""
+
+    def test_bookkeeping_keys_are_recognized_by_identifier(self):
+        for key in ('source_object','template_name_prefill_type','template_anything',
+                    'import_type','cover_x','set_of'):
+            with self.subTest(key=key):
+                self.assertTrue(internal_record_property(key))
+        # A user property key is an id; a similar label is still user data.
+        self.assertFalse(internal_record_property('660578238cec08068e66a674'))
+        self.assertFalse(internal_record_property(''))
+
+    def test_custom_properties_drop_bookkeeping_and_keep_user_values(self):
+        doc={'properties':{'name':'Kitty','source_object':['bafy-x'],
+                           'template_name_prefill_type':1,'stars':['bafy-y']}}
+        self.assertEqual(custom_properties(doc),{'stars':['bafy-y']})
+
+    def test_type_schema_ignores_bookkeeping_definitions(self):
+        result=declared_properties({'property_definitions':[
+            {'property':'source_object','name':'Source object','format':'objects'},
+            {'property':'template_name_prefill_type','name':'template_name_prefill_type','format':'number'},
+            {'property':'abc123','name':'Mood','format':'select'}]}, {})
+        self.assertEqual([x['name'] for x in result],['Mood'])
+
+    def test_artifact_labels_use_the_source_vocabulary(self):
+        doc={'properties':{'source_object':['bafy-x'],'template_name_prefill_type':1,'stars':['bafy-y']},
+             'property_internal_keys':{}}
+        vocabulary={'source_object':{'name':'Source object','format':'objects'}}
+        self.assertEqual(import_artifacts(doc,vocabulary),
+                         {'Source object':'source_object',
+                          'template_name_prefill_type':'template_name_prefill_type'})
+
+    def test_engine_skips_artifact_columns_and_removes_leftovers(self):
+        class Source:
+            def object_detail(self, sid, oid):
+                return {'properties':{'name':'Kitty','source_object':['bafy-x'],
+                                      'template_name_prefill_type':1,'stars':['bafy-y']},
+                        'blocks':[{'type':'paragraph','text':'Body'}]}
+        kitty={'id':'k','name':'Kitty','type':'character'}
+        inventory={'all':[kitty],'objects':[kitty],'collections':[],'members':{},'standalone':[],
+                   'types':[{'id':'type-character','key':'character','name':'Characters','items':[kitty]}],
+                   'stats':{}}
+        plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
+              'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
+              'mode':'simple','follow_links':False,'files':False}
+        vocabulary={'source_object':{'name':'Source object','format':'objects'},
+                    'template_name_prefill_type':{'format':'number'},
+                    'stars':{'name':'Player','format':'objects'}}
+        created=[]; target=object()
+        def add_column(target,sid,cid,name,xkey,kind,fmt):
+            created.append(name)
+            return 'prop-'+name
+        with patch('migration.create_space',return_value='dest'),\
+             patch('migration.create_collection',return_value='coll1'),\
+             patch('migration.create_object',return_value='new-k'),\
+             patch('migration.anytype_property_definitions',return_value=vocabulary),\
+             patch('migration.list_columns',return_value=[{'id':'p1','name':'Source object'}]),\
+             patch('migration.add_column',side_effect=add_column),\
+             patch('migration.set_column_value'),\
+             patch('migration.set_markdown'),\
+             patch('migration.delete_column') as delete:
+            events=list(Engine(Source(),target,inventory,plan).run())
+        summary=events[-1]
+        self.assertNotIn('Source object',created)
+        self.assertNotIn('template_name_prefill_type',created)
+        self.assertIn('Player',created)
+        delete.assert_called_once_with(target,'dest','coll1','p1')
+        self.assertEqual(summary['removed_properties'],
+                         [{'name':'Source object','collection_id':'coll1','property_id':'p1'}])
 
 
 if __name__=='__main__':unittest.main()

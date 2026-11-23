@@ -119,3 +119,16 @@ A collection uses the native `dataviews/default` table and its first `views/defa
 - A mention whose object is not in the imported scope keeps its label, without visible tag, and produces the warning “Mention vers un objet non importé”.
 - The label uses the mention text, then the known object name, then the identifier. HTML entities in the label are decoded.
 - These fixes apply to future imports; already copied pages are not repaired automatically.
+
+## Anytype bookkeeping properties — fix of 23 November 2026
+
+Anytype keeps its internal bookkeeping in the same property map as user values. Those keys are never user-created columns:
+
+- `source_object` (provenance of an object imported into Anytype);
+- `template_name_prefill_type` and every `template_`-prefixed key (template prefill settings);
+- `import_type`, `unique_key`, `default_template_id`, `default_type_id`, `default_view_type`, `size_in_bytes`, `deletion_change_id`, `internal_flags`, `featured_relations`, `recommended_relations`, `recommended_*_relations`, `recommended_layout`, `header_relations_layout`, `set_of`, `order_id`, `cover_*`, `icon_name`, `icon_option`, `plural_name`, `layout_width`.
+
+- These identifiers are matched by **key**, never by label: a user property that merely looks like “Source object” but whose key is a generated identifier is still imported.
+- They are no longer imported as columns or values, including when they appear in a type schema or in inline view filters.
+- Safety net: at the end of the import, columns bearing those names in the collections created by this run are removed through `DELETE /v1/spaces/:spaceId/collections/:collectionId/properties/:propId`. Reused destination collections are never cleaned, so an existing user column is never deleted. Any removal is listed in the JSON report under `removed_properties`.
+- Already imported objects are not repaired automatically: running the import again creates new copies.

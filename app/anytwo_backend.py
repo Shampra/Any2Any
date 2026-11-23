@@ -9,7 +9,7 @@ import re
 from api_clients import (
     APIError, Anytwo, target_write, create_space, create_collection,
     create_object, add_membership, list_columns, add_column, set_column_value,
-    set_markdown, append_markdown, attach_file, get_file_info, create_editor_block,
+    delete_column, set_markdown, append_markdown, attach_file, get_file_info, create_editor_block,
     local_get, local_binary, unwrap_list, _segment,
 )
 
@@ -27,7 +27,7 @@ def server_version(api):
 __all__=[
     'APIError','Anytwo','target_write','create_space','create_collection',
     'create_object','add_membership','list_columns','add_column','set_column_value',
-    'set_markdown','append_markdown','attach_file','get_file_info','create_editor_block',
+    'delete_column','set_markdown','append_markdown','attach_file','get_file_info','create_editor_block',
     'local_get','local_binary','unwrap_list','_segment','set_space_icon',
 ]
 
