@@ -68,29 +68,62 @@ def native_toggle(block,children,render,title):
                          '<!-- /any:collapsible -->'])
 
 
+def feature_envelope_supported(version, feature):
+    """Whether this client interprets a native envelope kind natively.
+
+    Anytwo 0.5 stores HTML comments as generic html blocks, so the collapsible,
+    columns and embed envelopes become visible page text. The native dynamic
+    table-of-contents block is interpreted from 0.4.1 and remains valid there.
+    An unknown (empty) version keeps native envelopes untouched.
+    """
+    if not version:
+        return True
+    version = tuple(version)
+    if feature == 'table-of-contents':
+        return version >= (0, 4, 1)
+    return version < (0, 5, 0)
+
+
 def envelopes_supported(version):
-    """Anytwo 0.5 shows HTML comment envelopes as visible html blocks."""
-    return not (version and tuple(version) >= (0, 5, 0))
+    """True when every legacy envelope feature is still interpreted natively."""
+    return all(feature_envelope_supported(version, feature)
+               for feature in ('collapsible', 'columns', 'embed'))
 
 
 ENVELOPE_COMMENT_RE=re.compile(r'[ \t]*<!--\s*/?\s*any:[^\n]*?-->[ \t]*')
 COLLAPSIBLE_ENVELOPE_RE=re.compile(
     r'<!--\s*any:collapsible\s[^\n]*?-->[ \t]*\n+[ \t]*([^\n]+?)[ \t]*\n+[ \t]*<!--\s*any:collapsible-content\s*-->')
+# Fenced code blocks and native dynamic table-of-contents envelopes are source
+# content the legacy fallback must never rewrite.
+PROTECTED_BLOCK_RE=re.compile(
+    r'```[^\n]*\n.*?```'
+    r'|[ \t]*<!--\s*any:block\s+[^\n]*?"table-of-contents"[^\n]*?-->[ \t]*\n+'
+    r'[ \t]*<!--\s*/any:block[^\n]*?-->[ \t]*', re.DOTALL)
 
 
 def legacy_markup(markdown):
-    """Rewrite native envelopes as plain Markdown for clients without markers.
+    """Rewrite unsupported envelopes as plain Markdown for newer clients.
 
     Anytwo 0.5 stores HTML comments as generic html blocks instead of the native
-    collapsible, columns and embed nodes, so an envelope would be displayed as
-    page text. Toggle titles stay visible as bold titles or headings.
+    collapsible, columns and embed nodes, so those envelopes would be displayed
+    as page text. Toggle titles stay visible as bold titles or headings, while
+    fenced code and the native dynamic table-of-contents block are preserved.
     """
     def toggle(match):
         title=match.group(1)
         return title if title.startswith('#') else '**'+title+'**'
-    text=COLLAPSIBLE_ENVELOPE_RE.sub(toggle,str(markdown))
+    text=str(markdown)
+    protected=[]
+    def stash(match):
+        protected.append(match.group(0))
+        return '\x01'+str(len(protected)-1)+'\x02'
+    text=PROTECTED_BLOCK_RE.sub(stash,text)
+    text=COLLAPSIBLE_ENVELOPE_RE.sub(toggle,text)
     text=ENVELOPE_COMMENT_RE.sub('',text)
-    return re.sub(r'\n{3,}','\n\n',text).strip('\n')
+    text=re.sub(r'\n{3,}','\n\n',text).strip('\n')
+    for index,block in enumerate(protected):
+        text=text.replace('\x01'+str(index)+'\x02',block)
+    return text
 
 
 def youtube_canonical(value):

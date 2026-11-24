@@ -35,7 +35,7 @@ from anytwo_backend import (
                          delete_column, target_write, local_get, _segment)
 from chat_archives import histories as chat_histories, markdown as chat_markdown
 from page_text import page_text, notice, activate, language
-from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation
+from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation, INLINE_MENTION_RE
 
 MAX_OBJECTS = 500
 SYSTEM = {x.replace('-', '_').replace(' ', '_').casefold() for x in INTRINSIC_PROPERTIES}
@@ -162,15 +162,15 @@ INTERNAL_RECORD_PROPERTIES = frozenset({
     'cover_id', 'cover_type', 'cover_x', 'cover_y', 'cover_scale',
     'icon_name', 'icon_option', 'plural_name', 'layout_width',
 })
-# Anytype template internals share this prefix; user property keys are ids.
-INTERNAL_RECORD_PREFIXES = ('template_',)
-
-
 def internal_record_property(identifier):
-    """True for Anytype record bookkeeping keys that are never user columns."""
+    """True for Anytype record bookkeeping keys that are never user columns.
+
+    Matching is by the explicit set of identifiers Anytype itself declares.
+    User property keys are generated ids and may share a display label with a
+    system field, so a `template_` prefix is never a signal of system origin.
+    """
     key = str(identifier or '').replace('-', '_').replace(' ', '_').casefold()
-    return bool(key) and (key in INTERNAL_RECORD_PROPERTIES
-                          or key.startswith(INTERNAL_RECORD_PREFIXES))
+    return bool(key) and key in INTERNAL_RECORD_PROPERTIES
 
 
 def import_artifacts(doc, vocabulary=None):
@@ -387,16 +387,17 @@ def reference_link(ref, mapping, target_sid, names):
 
 
 def replace_inline_links(text, mapping, sid, names, issues):
+    # Anytype serialises inline @ mentions as HTML-like tags the client would
+    # otherwise display verbatim. Both object_id and objectId are accepted.
     def mention(match):
-        ref = html.unescape(match.group(2))
-        label = html.unescape(match.group(3)) or names.get(ref, 'Objet lié')
-        uri = reference_link(ref, mapping, sid, names)
+        oid = unquote((match.group(1) or match.group(2) or '').strip())
+        label = html.unescape(match.group(3)).strip() or str(names.get(oid) or oid)
+        uri = reference_link(oid, mapping, sid, names)
         if not uri:
-            issues.add('Lien vers un objet non importé')
+            issues.add('Mention vers un objet non importé')
             return label
         return titled_link(label, uri)
-    text = re.sub(r'(?<!\\)<mention\s+object_id=([\"\'])(.*?)\1\s*>(.*?)</mention>',
-                  mention, str(text), flags=re.DOTALL)
+    text = INLINE_MENTION_RE.sub(mention, str(text))
     # AnyBlock inline links use Markdown with anytype://object?objectId=<id>.
     def old_url(m):
         params = parse_qs(m.group(2).replace(r'\&', '&'))
@@ -406,7 +407,7 @@ def replace_inline_links(text, mapping, sid, names, issues):
             issues.add('Lien vers un objet non importé')
             return m.group(0)
         return m.group(1) + new + ')'
-    text = re.sub(r'(\]\()anytype://object\?([^\s)]+)\)', old_url, str(text))
+    text = re.sub(r'(\]\()anytype://object\?([^\s)]+)\)', old_url, text)
     return text
 
 
@@ -924,6 +925,7 @@ class Engine:
         self.memberships={}
         self.property_bindings={}
         self.written_properties={}
+        self.created_columns=[]
         self.property_previews={}
         self.type_names={str(t.get('key')):t.get('name') for t in inventory['types']}
         self.source_views=SourceViews(source,self.sid,inventory)
@@ -970,35 +972,33 @@ class Engine:
     def remove_import_artifacts(self, documents, vocabulary):
         """Drop Anytwo columns that only mirror Anytype import bookkeeping.
 
-        Only identifiers the source itself declares are matched, and only
-        importer-created collections are cleaned, so user columns are never
-        touched. Returns the removed columns for the report.
+        Deletion eligibility is never inferred from a display name: a column
+        is only removed when this import created it and its exact source
+        property identity is a verified system field. Columns created by this
+        import are tracked in `created_columns` with their source key.
         """
         artifacts = {}
         for doc in documents:
             artifacts.update(import_artifacts(doc, vocabulary))
         if not artifacts: return []
-        names = {label.casefold() for label in artifacts}
-        names.update(key.casefold() for key in artifacts.values())
+        template_settings = {key for key in artifacts.values()
+                             if str(key).replace('-', '_').replace(' ', '_').casefold().startswith('template_')}
+        if template_settings:
+            self.report.setdefault('template_settings_not_translated', []).extend(sorted(template_settings))
+        identities = {str(key).replace('-', '_').replace(' ', '_').casefold()
+                      for key in artifacts.values()}
         removed = []
-        created = {cid for cid in self.col_cache.values() if cid not in self.existing_collections}
-        for cid in sorted(created):
+        for column in self.created_columns:
+            source = str(column.get('source_key') or '').replace('-', '_').replace(' ', '_').casefold()
+            if source not in identities: continue
+            cid = column['collection_id']; prop_id = column['property_id']
             try:
-                columns = list_columns(self.target, self.dest_sid, cid)
-            except (APIError, ValueError, TypeError, KeyError):
+                delete_column(self.target, self.dest_sid, cid, prop_id)
+            except (APIError, ValueError, TypeError) as exc:
+                self.report.setdefault('artifact_warnings', []).append(
+                    f'Colonne technique « {column["label"]} » non supprimée : {exc}')
                 continue
-            for column in columns:
-                label = str(column.get('name') or '')
-                if label.casefold() not in names: continue
-                prop_id = str(column.get('id') or '')
-                if not prop_id: continue
-                try:
-                    delete_column(self.target, self.dest_sid, cid, prop_id)
-                except (APIError, ValueError, TypeError) as exc:
-                    self.report.setdefault('artifact_warnings', []).append(
-                        f'Colonne technique « {label} » non supprimée : {exc}')
-                    continue
-                removed.append({'name': label, 'collection_id': cid, 'property_id': prop_id})
+            removed.append({'name': column['label'], 'collection_id': cid, 'property_id': prop_id})
         return removed
 
     def import_widgets(self, entries, docs):
@@ -1098,7 +1098,7 @@ class Engine:
             return None
         return self.col('type:'+key, name)
 
-    def property(self, cid, name, fmt, value, issues, metadata, override=None):
+    def property(self, cid, name, fmt, value, issues, metadata, override=None, source_key=None):
         kind, form = override if override else column_shape(fmt, value, issues)[:2]
         meta=metadata.get(name.casefold(), {})
         saved=json.loads((form.get('any2any') or {}).get('sourceSettings') or '{}')
@@ -1132,6 +1132,8 @@ class Engine:
             issues.add(f'Propriété « {name} » : même nom mais format différent dans la collection cible')
             name += ' (Anytype)'
         pid = add_column(self.target,self.dest_sid,cid,name,slug(name,(cid,name,fmt)),kind,form)
+        self.created_columns.append({'source_key':source_key or name,'collection_id':cid,
+                                     'property_id':pid,'label':name})
         self.prop_cache[key]=(pid,form)
         return self.prop_cache[key]
 
@@ -1207,7 +1209,8 @@ class Engine:
                     else:
                         kind=declared_column_shape({**spec,'format':spec.get('format') or 'text'})[0]
                         pid,actual=self.property(scope,str(spec.get('name') or name),spec.get('format') or 'text',None,issues,converter.metadata,
-                            override=(kind,deepcopy(form)))
+                            override=(kind,deepcopy(form)),
+                            source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or name))
                         target_binding=(scope+'.'+pid,spec,actual)
                     for oid in included:
                         values=[]
@@ -1262,7 +1265,8 @@ class Engine:
             kind,form=declared_column_shape(spec)
             if fmt=='date' and found and any(date_has_time(v) for _,v in found):
                 form['type']='datetime'
-            pid,actual=self.property(scope,spec['name'],fmt,found[0][1] if found else None,issues,converter.metadata,override=(kind,form))
+            pid,actual=self.property(scope,spec['name'],fmt,found[0][1] if found else None,issues,converter.metadata,override=(kind,form),
+                source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or name))
             bindings[name.casefold()]=[(scope+'.'+pid,spec,actual)]
             for index,(oid,value) in enumerate(found):
                 converted=references[index] if fmt=='objects' else column_shape(fmt,value,issues)[2]
@@ -1610,7 +1614,8 @@ class Engine:
                         continue
                     try:
                         pid,form=self.property(cid,spec['name'],spec['format'],None,issues,metadata,
-                                      override=(declared_column_shape(spec)[0], enrich_descriptor(spec, declared_column_shape(spec)[1], issues)))
+                                      override=(declared_column_shape(spec)[0], enrich_descriptor(spec, declared_column_shape(spec)[1], issues)),
+                                      source_key=str(spec.get('key') or spec.get('internal_key') or spec.get('id')))
                         for alias in (spec['key'],spec['name'],spec.get('id'),spec.get('internal_key')):
                             if alias:
                                 binding=(cid+'.'+pid,spec,form)
@@ -1695,7 +1700,8 @@ class Engine:
                     if fmt=='date' and form.get('type')=='date' and date_has_time(converted):
                         form['type']='datetime'
                     pid,actual_form=self.property(primary,label,fmt,value,r['issues'],metadata,
-                                                  override=(kind,form))
+                                                  override=(kind,form),
+                                                  source_key=str(meta.get('internal_key') or meta.get('key') or name))
                     if fmt in ('select','multi_select'):
                         # Options must be extended in a later pass if the column pre-exists.
                         options=actual_form.setdefault('options',{}) if isinstance(actual_form,dict) else {}

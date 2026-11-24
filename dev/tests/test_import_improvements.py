@@ -7,7 +7,7 @@ from api_clients import APIError, Anytype, anytype_property_definitions
 from migration import (Engine, render_blocks, declared_column_shape, declared_properties, slug,
                        custom_properties, import_artifacts, internal_record_property, mapped_relation,
                        relation_references, write_markdown_with_embeds)
-from rich_content import legacy_markup, envelopes_supported
+from rich_content import legacy_markup, envelopes_supported, feature_envelope_supported
 from view_conversion import (ViewConverter, UnsupportedView, enrich_descriptor,
                              create_saved_views, modify_records)
 
@@ -204,13 +204,17 @@ class ImportArtifactTests(unittest.TestCase):
     """Anytype record bookkeeping must never become an Anytwo column."""
 
     def test_bookkeeping_keys_are_recognized_by_identifier(self):
-        for key in ('source_object','template_name_prefill_type','template_anything',
+        for key in ('source_object','template_name_prefill_type',
                     'import_type','cover_x','set_of'):
             with self.subTest(key=key):
                 self.assertTrue(internal_record_property(key))
         # A user property key is an id; a similar label is still user data.
         self.assertFalse(internal_record_property('660578238cec08068e66a674'))
         self.assertFalse(internal_record_property(''))
+        # The template_ prefix is never a system signal: a custom property
+        # whose key merely starts with template_ is user data.
+        self.assertFalse(internal_record_property('template_notes'))
+        self.assertFalse(internal_record_property('template_anything'))
 
     def test_custom_properties_drop_bookkeeping_and_keep_user_values(self):
         doc={'properties':{'name':'Kitty','source_object':['bafy-x'],
@@ -232,7 +236,7 @@ class ImportArtifactTests(unittest.TestCase):
                          {'Source object':'source_object',
                           'template_name_prefill_type':'template_name_prefill_type'})
 
-    def test_engine_skips_artifact_columns_and_removes_leftovers(self):
+    def test_engine_skips_artifact_columns_and_preserves_homonymous_leftovers(self):
         class Source:
             def object_detail(self, sid, oid):
                 return {'properties':{'name':'Kitty','source_object':['bafy-x'],
@@ -266,9 +270,32 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertNotIn('Source object',created)
         self.assertNotIn('template_name_prefill_type',created)
         self.assertIn('Player',created)
-        delete.assert_called_once_with(target,'dest','coll1','p1')
-        self.assertEqual(summary['removed_properties'],
-                         [{'name':'Source object','collection_id':'coll1','property_id':'p1'}])
+        # A homonymous leftover column is never deleted by display name.
+        delete.assert_not_called()
+        self.assertNotIn('removed_properties',summary)
+
+    def test_custom_properties_keep_a_template_prefixed_user_key(self):
+        doc={'properties':{'name':'Kitty','template_notes':'A user note',
+                           'template_name_prefill_type':1},
+             'property_internal_keys':{'660578238cec08068e66a674':'template_notes'}}
+        self.assertEqual(custom_properties(doc, {}),
+                         {'template_notes':'A user note'})
+
+    def test_artifact_cleanup_only_deletes_tracked_system_columns(self):
+        # A user column labelled like a system field must survive cleanup.
+        from migration import Engine
+        engine=Engine.__new__(Engine)
+        engine.target=object(); engine.dest_sid='dest'
+        engine.created_columns=[
+            {'source_key':'abc123','collection_id':'c1','property_id':'p-user','label':'Source object'},
+            {'source_key':'source_object','collection_id':'c1','property_id':'p-sys','label':'Source object'}]
+        engine.report={}
+        docs=[{'properties':{'source_object':['x']}}]
+        vocabulary={'source_object':{'name':'Source object','format':'objects'}}
+        with patch('migration.delete_column') as delete:
+            removed=engine.remove_import_artifacts(docs, vocabulary)
+        delete.assert_called_once_with(engine.target,'dest','c1','p-sys')
+        self.assertEqual(removed,[{'name':'Source object','collection_id':'c1','property_id':'p-sys'}])
 
     def test_empty_url_and_relative_url_values_do_not_fail_the_page(self):
         class Source:
@@ -334,6 +361,28 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertIn('**Secret stash**',plain)
         self.assertIn('Hidden note',plain)
         self.assertIn('## Open question',plain)
+
+    def test_legacy_markup_preserves_fenced_markers(self):
+        markdown='Before\n\n```html\n<!-- any:block {"kind":"embed"} -->\n```\n\nAfter'
+        self.assertEqual(legacy_markup(markdown),
+                         'Before\n\n```html\n<!-- any:block {"kind":"embed"} -->\n```\n\nAfter')
+
+    def test_legacy_markup_preserves_native_toc(self):
+        toc=('<!-- any:block {"v":1,"kind":"table-of-contents","schema":1,'
+             '"instance":"i1","data":{}} -->\n\n\n\n<!-- /any:block {"instance":"i1"} -->')
+        markdown='Intro\n\n'+toc+'\n\nOutro'
+        plain=legacy_markup(markdown)
+        self.assertIn(toc,plain)
+        self.assertIn('Intro',plain)
+        self.assertIn('Outro',plain)
+
+    def test_feature_envelope_support_is_per_feature(self):
+        self.assertTrue(feature_envelope_supported((0,5,0),'table-of-contents'))
+        self.assertFalse(feature_envelope_supported((0,5,0),'collapsible'))
+        self.assertFalse(feature_envelope_supported((0,5,0),'columns'))
+        self.assertFalse(feature_envelope_supported((0,5,0),'embed'))
+        self.assertTrue(feature_envelope_supported((0,4,9),'collapsible'))
+        self.assertFalse(feature_envelope_supported((0,3,6),'table-of-contents'))
 
     def test_layout_embed_and_image_envelopes_are_stripped(self):
         markdown='\n\n'.join(['<!-- any:columns {"widths":[1,1]} -->','<!-- any:column -->','Left',
