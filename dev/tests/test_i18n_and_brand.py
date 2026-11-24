@@ -69,6 +69,13 @@ if(t('Any2Any · Importer','en')!=='Any2Any · Import') process.exit(5);
             'Collection « Alternate » :': 'Collection “Alternate”:',
             'Correspondance manquante pour le type « Character ».':
                 'Missing mapping for type “Character”.',
+            'Bloc inconnu « widget »': 'Unknown block “widget”',
+            'Fichier indisponible : photo.png (HTTP 500)': 'File unavailable: photo.png (HTTP 500)',
+            'Restriction de types de « System » archivée : certains types cibles ne sont pas importés':
+                'Type restriction of “System” archived: some target types are not imported',
+            'Lecture des blocs et propriétés…': 'Reading blocks and properties…',
+            'Analyse terminée.': 'Analysis complete.',
+            'Sélection : 42 page(s) repérée(s)…': 'Selection: 42 page(s) found…',
         }
         script = """const fs=require('fs'),vm=require('vm');
 const sandbox={navigator:{language:'fr-FR'},localStorage:{getItem:()=>null,setItem:()=>{}}};
