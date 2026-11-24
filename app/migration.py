@@ -1661,7 +1661,7 @@ class Engine:
                     try:
                         pid,form=self.property(cid,spec['name'],spec['format'],None,issues,metadata,
                                       override=(declared_column_shape(spec)[0], enrich_descriptor(spec, declared_column_shape(spec)[1], issues)),
-                                      source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id')))
+                                      source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or '') or None)
                         for alias in (spec['key'],spec['name'],spec.get('id'),spec.get('internal_key')):
                             if alias:
                                 binding=(cid+'.'+pid,spec,form)

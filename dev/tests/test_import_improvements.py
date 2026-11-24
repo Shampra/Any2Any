@@ -369,11 +369,11 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertEqual(engine.created_columns,[])
 
     def test_engine_call_sites_never_track_a_display_label(self):
-        # A custom property whose vocabulary entry has no key/id/internal_key
-        # must not be recorded under its label as a cleanup identity.
+        # A user property with no source identity must be created but not
+        # tracked under its label; with an identity it must track that identity.
         class Source:
             def object_detail(self, sid, oid):
-                return {'properties':{'name':'Kitty','Source object':'A note'},
+                return {'properties':{'name':'Kitty','Notes':'A note'},
                         'blocks':[{'type':'paragraph','text':'Body'}]}
         kitty={'id':'k','name':'Kitty','type':'character'}
         inventory={'all':[kitty],'objects':[kitty],'collections':[],'members':{},'standalone':[],
@@ -382,19 +382,51 @@ class ImportArtifactTests(unittest.TestCase):
         plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
               'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
               'mode':'simple','follow_links':False,'files':False}
-        engine=Engine(Source(),object(),inventory,plan)
+        created=[]
+        def add_column(target,sid,cid,name,xkey,kind,fmt):
+            created.append(name);return 'prop-'+name
         with patch('migration.create_space',return_value='dest'),\
              patch('migration.create_collection',return_value='coll1'),\
              patch('migration.create_object',return_value='new-k'),\
-             patch('migration.anytype_property_definitions',return_value={}),\
+             patch('migration.anytype_property_definitions',return_value={'notes':{'name':'Notes','format':'text'}}),\
              patch('migration.list_columns',return_value=[]),\
-             patch('migration.add_column',return_value='prop'),\
+             patch('migration.add_column',side_effect=add_column),\
              patch('migration.set_column_value'),\
              patch('migration.set_markdown'),\
              patch('migration.delete_column') as delete:
+            engine=Engine(Source(),object(),inventory,plan)
             list(engine.run())
-        self.assertFalse(any(row.get('source_key')=='Source object'
-                             for row in engine.created_columns))
+        self.assertIn('Notes',created)
+        # Without a resolved identity the column is created but never tracked,
+        # so a label can never become a cleanup identity.
+        self.assertEqual(engine.created_columns,[])
+        delete.assert_not_called()
+
+    def test_engine_tracks_a_resolved_property_identity(self):
+        class Source:
+            def object_detail(self, sid, oid):
+                return {'properties':{'name':'Kitty','Notes':'A note'},
+                        'blocks':[{'type':'paragraph','text':'Body'}]}
+        kitty={'id':'k','name':'Kitty','type':'character'}
+        inventory={'all':[kitty],'objects':[kitty],'collections':[],'members':{},'standalone':[],
+                   'types':[{'id':'type-character','key':'character','name':'Characters','items':[kitty]}],
+                   'stats':{}}
+        plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
+              'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
+              'mode':'simple','follow_links':False,'files':False}
+        with patch('migration.create_space',return_value='dest'),\
+             patch('migration.create_collection',return_value='coll1'),\
+             patch('migration.create_object',return_value='new-k'),\
+             patch('migration.anytype_property_definitions',
+                   return_value={'notes':{'name':'Notes','key':'abc123','format':'text'}}),\
+             patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',return_value='prop-Notes'),\
+             patch('migration.set_column_value'),\
+             patch('migration.set_markdown'),\
+             patch('migration.delete_column') as delete:
+            engine=Engine(Source(),object(),inventory,plan)
+            list(engine.run())
+        self.assertEqual([row['source_key'] for row in engine.created_columns],['abc123'])
         delete.assert_not_called()
 
     def test_untranslated_template_settings_are_reported(self):
