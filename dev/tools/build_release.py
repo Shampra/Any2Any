@@ -11,6 +11,7 @@ sys.path.insert(0,str(ROOT/'dev'))
 from app_version import VERSION
 APP_FILES=('anytype_templates.py', 'app_version.py', 'anytwo_backend.py', 'api_clients.py', 'chat_archives.py', 'file_transfer.py', 'inline_views.py', 'logic.py', 'migration.py', 'notion_cache.py', 'notion_compatibility.py', 'notion_content.py', 'notion_demo.py', 'notion_files.py', 'notion_icons.py', 'notion_import_jobs.py', 'notion_jobs.py', 'notion_migration.py', 'notion_native.py', 'notion_routes.py', 'notion_source.py', 'notion_tree.py', 'notion_views.py', 'page_text.py', 'rich_content.py', 'runtime_profile.py', 'server.py', 'source_views.py', 'view_conversion.py')
 PUBLIC_FILES=('README.md','README.en.md','LICENSE','CHANGELOG.md','demarrer.bat','demo.bat','Any2Any.command',
+              'docs/IMPORT-FIDELITE.fr.md','docs/IMPORT-FIDELITE.en.md',
               'docs/NOTES-TECHNIQUES.fr.md','docs/NOTES-TECHNIQUES.en.md',
               'docs/NOTION-API.fr.md','docs/NOTION-API.en.md',
               'docs/NOTION-IMPORT.fr.md','docs/NOTION-IMPORT.en.md')

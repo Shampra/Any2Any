@@ -1,5 +1,7 @@
 # Import Anytype vers Anytwo
 
+**[Français](NOTES-TECHNIQUES.fr.md) · [English](NOTES-TECHNIQUES.en.md)**
+
 Any2Any lit l’API locale Anytype v2 et écrit dans Anytwo via le moteur de destination partagé. L’application commune propose Anytype ou Notion au démarrage. Le [guide Notion](NOTION-IMPORT.fr.md) décrit l’autre source.
 
 ## Connexion et lancement

@@ -1,163 +1,77 @@
-# Import fidelity — 29 October 2026
+# Anytype import fidelity
 
 **[Français](IMPORT-FIDELITE.fr.md) · [English](IMPORT-FIDELITE.en.md)**
 
-This pass improves Anytype → Anytwo import fidelity. The READMEs do not contain a version number.
+This document describes the current behaviour of the converter. The [Anytype usage guide](NOTES-TECHNIQUES.en.md) covers selection and access. The [changelog](../CHANGELOG.md) keeps the history of changes.
 
-## Properties
+## Properties and collections
 
-- Preservation of unused options, names, colours and their declared order; additional reading of the Anytype tag list when the vocabulary is not included in the v2 metadata.
-- Property resolution by identifier, name and `property_internal_keys` caption; type schema preserved even for columns without a value.
-- Property description sent as the native description. Date with time and simple relation cardinality mapped when declared. Relation restrictions remapped to the collections matching the imported types when all are available.
-- Settings without a safe equivalent (read-only, default value, numeric cardinality limit) kept in `xFormat.any2any.sourceSettings` metadata and reported as not applied. Archiving them does not recreate their behaviour.
-- An existing property is not silently reconfigured: parameter or colour differences are reported. Missing options are added with their colours when available.
-- Relation properties use the API form `any://<objectId>`, while page content keeps its navigation links with space.
+Members of a source collection receive the target collection's supertag. Properties are written into that collection. A type supertag is a fallback for objects outside a collection when their properties need one. A source-global property can be carried by several target collections without becoming several source identities.
+
+Columns declared without values are created. Choice options use the source vocabulary's labels and colours. `lime` is normalised to `green` and `gray` to `grey`. When a target column already exists, differences in settings or colours are reported. Missing options can be added.
+
+Compatible settings, notably time presence and choice options, are transferred. Settings that cannot be applied are archived in `xFormat.any2any.sourceSettings` with a warning. Relation restrictions are applied only when their target types are resolved.
+
+A date with time is stored in a datetime descriptor even when the source declares a plain date. This choice is made before values are written and preserves sorting. Source system dates needed by views are kept in columns separate from the destination's new creation dates.
+
+File/image properties never become text columns. When retrieval is enabled, their content is added at the top of the page under the property label. Images use their inline rendering and other files an attachment link. This adaptation appears in the report.
+
+Anytype's internal bookkeeping (`source_object`, `template_name_prefill_type` and the other system fields of the internal list) is never imported as a column. These keys are matched by identifier, never by label or prefix: a user property named `template_notes` whose key is a generated identifier is still imported. A template setting that cannot be translated is reported.
+
+## Links and files
+
+Collection links target the Anytwo collections directly. Collections are not duplicated as navigation pages. Mentions become inline links to the imported objects. Internal link rewriting removes the parameters and escapes of the original Anytype address.
+
+Files linked as source objects are recognised, including PDFs. The name and extension are looked up in the metadata before transfer. The technical import prefix is removed when it is identifiable and followed by a readable name. Names made only of a hash are kept. The CSV MIME type is explicitly sent as `text/csv`.
+
+The target file library is read once per import. Reusing an existing file checks the normalised name, the size and the SHA-256 of the bytes. Variants and thumbnails are excluded. One source file referenced by several pages reuses the same transfer in that space. The report details transfers and reuse.
+
+Images use native Markdown and their pixel widths use the `any:image-width` marker. Relative widths are approximated against a 720 px reference, with the native 96 px minimum and a warning. The result is not proportional to every window width.
 
 ## Views
 
-Properties and their values are transferred before view conversion. Views of selected collections and page `dataview` blocks are examined. A native `dataview` object is attached to the target page or collection and receives `dataviews` and `views` records through `/modify`. Partial rejections are treated as failures.
+Selected collections and those referenced by views are resolved before pages are created. An archived source collection referenced by a view can receive its own compatible views. Collection configurations are stored in the native `dataviews` and `views` datasets, with the `default` table and its ordered views.
 
-Collection sources are limited to the identifiers actually imported, without widening to other destination data. Type sources use the type collections; property sources keep a presence condition. An explicitly empty source stays empty. Views sharing a page use the same host object with distinct table and view identifiers.
+Nested AND/OR filters, simple comparisons, single-select comparisons, compatible empty conditions, `in`/`not_in`/`all_in` lists, presence and compatible text comparisons are remapped. Options and references are replaced by their target identifiers. Ascending/descending sorts, groups, visible properties and column order are kept when their configuration is transferable.
 
-Supported filters: nested AND/OR groups, simple scalar comparisons, `in`/`not_in`/`all_in` lists, presence. Property, option and relation identifiers are remapped. Ascending/descending sorts and grouping are mapped when the property has a single destination. An unknown filter, a relative date, a comparison whose empty rules differ, or a custom or ambiguous sort makes the entire view refused: no filter is simply removed.
+Unknown conditions, relative dates, contextual filters, custom sorts or incompatible empty rules cause an explicit refusal of the affected view. The active view is never silently replaced by a less filtered one. Definitions and errors remain in the JSON report.
 
-Source definitions of all views are kept in the JSON report (`views`). Property visibility and order are applied to native collection views through `layoutSettings.visible`, `hidden` and `order`. Widths, cards, aggregations and manual document order remain archived in `layoutSettings.any2any.sourceView` when their application is not verified. Table/list/board/gallery layouts are sent as hints to the client, with no rendering guarantee.
+Inline views use the `any:block` envelope of type `inline-view`. Their main configuration is stored under `<instance>.list`, with the source, filters and sort in `query.anyUi`. They reuse their source collection or the collection representing their source type. A source made of several collections is refused.
 
-**Since 0.9.3:** view blocks inside pages now use the native `any:block` envelope, `kind: inline-view`. Its `instance` matches the `dataviews` table, and its main configuration is stored under `<instance>.list`, with `query.anyUi.source`, `filters` and `sort`. The client rebuilds its query from these settings: saving only `query.filter` is not enough.
+Compatible Anytwo versions accept inline table and kanban layouts. Older clients can use a replacement list. Groups and secondary views keep their client-specific limits. A pre-existing target collection containing out-of-scope objects is never used to silently widen the results of an imported view.
 
-Inline views now reuse their real source collection or the collection representing their source type. They no longer create a technical “Vue · …” supertag per block. Several views of the same collection share the same source but keep their distinct view, filter and sort records. If the properties already belong to this source, they are reused; otherwise the necessary fields are copied into it. These copies are not synchronized with a same-named property in another collection.
+Width, manual order and presentation settings that are not applied are archived in `layoutSettings.any2any.sourceView`. The collection's views, properties and values stay distinct from the list of columns visible in a particular display.
 
-The current client offers only one type/collection source per Inline view block. A composed source that cannot be expressed by this model is explicitly refused, without inventing a technical collection. A pre-existing target collection containing documents outside the source scope is also refused for this view, so its results are not silently widened. Technical supertags from previous attempts are not removed automatically.
+## Templates and tables of contents
 
-The linked-items option also explores inline view documents, respecting evaluable filters, recursively and without duplicates. It can follow a query by type, notably a query on collections: the displayed collections are then represented by pages containing their own views. Unchecked, the option adds no view documents; the view remains limited to the chosen scope, with a warning if necessary. The simulation shows the same widening.
+Templates of the concerned types and those explicitly referenced by collection views are read from the source API. They become native Anytwo templates with their content, icon, properties and collections. An empty collection can also receive its template.
 
-Client inline views display the list and gallery layouts. A source table is adapted to a list with a warning; a grouping or filter that cannot be converted is explicitly refused. The active view (or the first view when unspecified) is never silently replaced by a less-filtered view. Secondary views are kept as saved views, without claiming the block offers their selector.
+The active view's default takes priority over the type default. Anytwo keeps one default per collection. Conflicting defaults or defaults that differ between views are reported. A default already present in an existing target collection is kept when it differs.
 
-The demonstration page provided by the owner confirmed the native format. The installed client's parser and query builder recognized the emitted block, numeric filter and sort, as well as date, boolean, select and relation filters. ANY/ALL relation logic is translated explicitly to avoid unintentional restriction or widening. Empty filters that the client would ignore are refused. The full suite of 99 automated tests passes. A test on the actually reported source, with all target writes simulated in memory, converted the two failed page views. No new Anytwo user object was created during these checks.
+On compatible versions, top-level tables of contents become native dynamic `table-of-contents` blocks. Nested tables of contents are adapted into static links to the real heading identifiers. The report notes the absence of automatic updates in that case.
 
-## Columns and tables
+## Blocks, formatting and media
 
-- Recursive traversal of nested rows and columns, without duplicating inner columns.
-- Images and attachments inside columns transferred by the same mechanism as main block files; explicit failures.
-- Code preserved without interpreting it as formatting; object links rewritten inside cells, including cells composed of several blocks.
-- Unknown blocks preserved with their JSON instead of being removed when they have no text.
+Toggles and collapsible headings use the native `any:collapsible` markers. Columns use `any:columns` and `any:column`, with their nested content. A malformed layout keeps its content in sequence with a warning. Tables keep their cells and checkboxes. Empty paragraphs use a zero-width character so Markdown does not merge them.
 
-The layout now uses the native `any:columns` / `any:column` markers, with source widths and nested content. The installed client's parser rebuilds them as real columns. A malformed layout keeps its content in sequence with a warning.
+YouTube videos use a native `embed` envelope. Audio files use the file links recognised by the client player. Icons use the universal `any.icon` property, with an emoji or a file reference. Enriched bookmarks become titled links.
 
-## Verified references
+On versions that store HTML comments as generic blocks, the `any:collapsible`, `any:columns` and `any:block` envelopes are written as plain Markdown: bold or heading titles, sequential columns, a link for embeds. The native dynamic table of contents is kept when supported and never disappears silently.
 
-- https://docs.any.org/types/index.html — view objects, datasets, host.
-- https://docs.any.org/types/editor.html — blocks, parents, styles; boundary between storage and rendering.
-- https://docs.any.org/database/reading-data.html — target filters and sorts.
-- https://github.com/anyproto/any/blob/main/docs/27-descriptors.md — property settings and extension namespaces.
-- https://github.com/anyproto/any-block/blob/main/format/v2/SPEC.md — Anytype filters, sources, properties and columns.
-- https://developers.anytype.io/docs/reference/2025-11-08/list-tags — reading the choice vocabulary.
+Underlining depends on the Markdown support of the Anytwo version. Text, background, block, cell and callout colours, alignment and advanced layouts with views inside callouts or columns remain limitations. Code tags are kept literally, including inside code blocks.
 
-The view and write schemas were also read on the installed API (any v0.3.4). No user data was imported or modified during the research. Automated checks use simulated APIs.
+## Widgets and chats
 
+Widgets based on an imported page or collection are added to the shared Overview in source order. Link stays Link and the other modes become Views. System sections and entries, including Recently edited, are ignored. Target duplicates between shared and personal widgets are avoided.
 
-## Formatting, media and icons
+Chats and discussions are excluded from ordinary imports. The archive option reads the chats exposed by the space API and produces one page per chat, with authors, dates, replies, edits, reactions and files according to the options. Messages become archive content. Reading uses cursor pagination and an incomplete history stops before destination writes.
 
-Isolated verification with the installed client's real parser (build `7a477ecc`, server any v0.3.4), without accessing its data or remote media. Since server any v0.5.0 these envelopes are no longer interpreted: see the “Layout markers” follow-up below.
+## References and validation
 
-- Toggles: `any:collapsible` markers, with titles and nested content. The parser produces `collapsible-container`, `collapsible-title` and `collapsible-content`.
-- YouTube: native `any:block` envelope, `embed` type, provider `youtube`. The parser produces `extension-block`, without displaying iframe code.
-- Audio: native file link `any://f/…` with the real name and extension. The parser produces `file-link`; the client selects its audio player by extension.
-- Tables: HTML lists of the checklist type, recognized as checkable boxes with their state. HTML underline is kept inside cells, whose import uses the DOM.
-- Files: name and extension looked up in the source metadata, then reused in the upload and the document.
-- Icons: universal `any.icon` property for emoji; uploaded file and same property for image icons.
+The test suite uses simulated sources and destinations. API re-reads, conversion replays and targeted checks of the client parser complete this validation. Rendering must be verified for the formats and versions in use.
 
-**Underline limit outside tables:** this client's Markdown parser has no transformer for `<u>`, even though the text engine can represent the style. The migrator keeps the text without the visible tags and reports the loss. Superscripts and subscripts follow the same rule. Tags inside code remain literal. Text and background colours remain limited by Anytwo.
-
-Automated tests cover the emitted formats and simulated transfers. The project owner then verified the reported fixes in Anytwo. The limits described here, notably underline outside tables and view rendering, still apply.
-
-The reference page created by the user, “Demo pour import” in “Test space”, was then consulted read-only. Its Markdown confirms the toggle markers, native audio links and YouTube envelope used here, as well as both checklist states in the tables.
-
-
-## Files and images — fix of 30 October 2026
-
-- Original names are resolved before transfer, even when the block already provides an extension. The technical pattern of 32 hexadecimal characters followed by a readable name is removed from metadata originating from an import/clipboard. Names consisting only of a hash are kept. The declared extension is still appended to names already containing dots, notably timestamped audio/video records.
-- Regular images use native Markdown `![name](any://f/space/file)`, with the same escaping as the client. Pixel widths use the native `any:image-width` comment. Anytype width percentages have no exact native equivalent: they are approximated in pixels on a 720 px reference block, with a warning in the report.
-- The target space library is read once per import. An existing file is reused only if the normalized name, size and SHA-256 of the bytes match; the name alone is not enough. Variants/thumbnails are excluded. If the content cannot be verified, a normal transfer is used.
-- The same Anytype file referenced from several pages uses the same Anytwo file, while remaining an embedded image at each location. Caches are separated by target space. Transfers and reuses appear in the report's `file_transfers`.
-- The two images reported in “Cobaye1” were found by content with their existing identifiers, without uploading or modifying a page. The client's real code recognized names with spaces, underscores, brackets and ampersands as native images.
-
-These fixes apply to future imports. Reusing an old prefixed file does not rename its library record; the new location uses a cleaned label. Pages and files already created by previous attempts are neither rewritten nor removed automatically.
-
-### Spacing, sizes and collection properties
-
-Empty paragraphs are kept as paragraphs containing a zero-width character, to avoid being merged by Markdown. Anytype relative widths are approximated in pixels on a 720 px reference block width, then limited to the native minimum of 96 px; the report signals this approximation. The rendering will therefore not be proportional to each window width.
-
-Select options and colours are read through `/v2/spaces/:space_id/properties/:key/options`. Document properties are also available in their source collection, including when hidden in the view. Dates with time remain datetime to preserve sorts; visible view properties remain distinct from the columns present in the collection. These fixes concern future imports and do not automatically repair already-created copies.
-
-### Chat archives (option)
-
-Chats remain excluded from ordinary pages and types. The “Import chats as archives” option, disabled by default, archives all chats exposed by `/v2/spaces/:space_id/chats` for the source space, even with a partial page selection. It does not separately discover object discussions absent from that list.
-
-One page per chat, grouped by day, from oldest to newest: quotes with author/date headers (explicit time zone), replies, edits, reactions and separators between messages. Images are embedded and other files linked if file retrieval is enabled. Links to already imported objects are rebuilt; others are reported. No publish call is made into Anytwo chats. Reactions remain archive annotations. No unverified callout frame or colour is invented.
-
-Reading follows `next_before`, without `offset`. Incomplete, inconsistent histories or repeated cursors stop the process before any target write. The simulation announces the additional pages without writing or downloading files. The JSON report contains the source messages and their identifiers, notably those of the authors, to preserve metadata and enable future presentation improvements.
-
-### Property identity, palette and nested collections
-
-A global Anytype property can be written into several target supertags when objects have different types. These locations do not define different source properties: in a collection or inline view, their values are merged into a single column bearing the source name. Select values are translated by label when target keys differ. A contradiction between values or between same-named source identities causes an explicit report; no technical suffix is invented. Property references belonging only to types outside the scope are ignored.
-
-The source green `lime` is translated to `green`, recognized by the Anytwo client; the client's palette includes `green` but not `lime`. The value `gray` is normalized to `grey`.
-
-Importing a space also preserves collections as navigation pages with their inline views. Memberships in parent collections use the source document's `collection_items` identifiers, even if the endpoint listing members omits nested collections. A collection membership does not automatically mean that every page displaying that collection in an inline view belongs to the same parent.
-
-### Properties owned by collections and native view
-
-Members of an imported collection receive its equivalent supertag and their properties are written directly into it. An object member of several collections keeps these memberships; the required properties are available in each. The source type supertag serves as a fallback for objects outside imported collections, or as an explicitly chosen destination for a type import. “Page” is no longer automatically added to collection members. Accounting fields therefore no longer appear in the fallback supertag of pages that only have a Tag.
-
-A collection uses the native `dataviews/default` table and its first `views/default` view (the following ones remain in the same table). Visible and hidden properties and their order are applied; sorts are in `query.sort` and in `query.anyUi.sort`. Source dates are kept in a collection property, distinct from the creation date of the imported copy. The Tag can be defined and filled while being hidden in this view. The existing view host is reused when importing into an existing collection. Widths remain local to the client and are archived with a warning.
-
-## Anytype mentions — fix of 23 November 2026
-
-- Inline `@` mentions exported by Anytype as `<mention object_id="…">Name</mention>` are converted to native object links `[Name](any://o/<space>/<object>)`, like Markdown links `anytype://object?objectId=…`. They are supported in paragraphs, headings, lists, quotes, columns, tables, compound table cells and the description prefix.
-- Mention targets are recognized by link discovery: they are imported automatically when the “Also import linked items” option is enabled. With the option disabled, the mention remains the display name as plain text and an explicit warning appears in the report.
-- A mention whose object is not in the imported scope keeps its label, without visible tag, and produces the warning “Mention vers un objet non importé”.
-- The label uses the mention text, then the known object name, then the identifier. HTML entities in the label are decoded.
-- These fixes apply to future imports; already copied pages are not repaired automatically.
-
-## Anytype bookkeeping properties — fix of 23 November 2026
-
-Anytype keeps its internal bookkeeping in the same property map as user values. Those keys are never user-created columns:
-
-- `source_object` (provenance of an object imported into Anytype);
-- `template_name_prefill_type` and every `template_`-prefixed key (template prefill settings);
-- `import_type`, `unique_key`, `default_template_id`, `default_type_id`, `default_view_type`, `size_in_bytes`, `deletion_change_id`, `internal_flags`, `featured_relations`, `recommended_relations`, `recommended_*_relations`, `recommended_layout`, `header_relations_layout`, `set_of`, `order_id`, `cover_*`, `icon_name`, `icon_option`, `plural_name`, `layout_width`.
-
-- These identifiers are matched by **key**, never by label: a user property that merely looks like “Source object” but whose key is a generated identifier is still imported.
-- They are no longer imported as columns or values, including when they appear in a type schema or in inline view filters.
-- Safety net: at the end of the import, columns bearing those names in the collections created by this run are removed through `DELETE /v1/spaces/:spaceId/collections/:collectionId/properties/:propId`. Reused destination collections are never cleaned, so an existing user column is never deleted. Any removal is listed in the JSON report under `removed_properties`.
-- Already imported objects are not repaired automatically: running the import again creates new copies.
-
-## Empty or non-absolute property values — fix of 23 November 2026
-
-- An empty value (`""` or blanks) is no longer written for the `url`, `email`, `phone`, `number` and `date` formats. Anytwo rejected the whole request (`property.format_violation: url value "" must be an absolute URL with a scheme`), which failed that page property. The value is now skipped with the warning “Valeur vide ignorée pour la propriété …”, without creating a useless column.
-- A non-absolute address (no scheme) is kept as text with the warning “Valeur non absolue pour … conservée en texte”, instead of being lost or blocking the page.
-- Empty dates no longer produce an invalid `$date` value.
-- These fixes apply to future imports.
-
-## Relation values and translated messages — 23 November 2026 follow-up
-
-- A relation column only accepts an array of `any://<objectId>` URIs. System fields mirrored for inline views now write an array, or fall back to text with a warning when the target is not imported. The `property.format_violation: relation value must be an array …` error no longer appears on collections.
-- A second pass was needed for empty values: the server must be restarted after an update, otherwise the old module stays in memory.
-- Log and report messages (issues, errors, progress, analysis) are translated through templates: object names and identifiers are reinserted verbatim. A fully English report no longer contains French text outside source data.
-
-- Follow-up: a relation value already stored as a JSON list or a raw identifier is normalized to `any://` URIs before writing. A reference that was not imported is skipped with the warning “Référence de relation non importée : valeur ignorée”, instead of producing `link "[...]" must be a plain any://<objectId> URI`.
-
-## Layout markers and duplicate columns — 23 November 2026 follow-up
-
-- Observation on server any v0.5.0 (commit `88fae2e5`): an HTML comment in the document is stored as a generic `html` block. The `any:collapsible`, `any:columns` and `any:block` envelopes therefore show up as literal text inside the page.
-- The migrator reads the server version. From 0.5.0 on it writes plain Markdown instead: a bold title (or a `#` heading for toggle headings), its content right after, columns rendered one after another, video embeds replaced by their link, and image width omitted. A log message explains the fallback, and the report keeps no per-page warning.
-- Verification on real source pages: 25 to 31 envelopes per page become 0, and a real write into a test space stores no `html` block at all.
-- A relation whose targets were not all imported no longer creates a duplicate `X (Anytype)` text column: the declared relation column is kept and only the missing references are dropped. A relation with no imported target writes nothing at all. A duplicate column created by an earlier import still has to be deleted by hand.
-
-## Page content language — 23 November 2026 follow-up
-
-- Text written into pages follows the language chosen in the interface. The import plan carries the selected language (`fr`, `en`, `de`) and the engine uses it for every page warning and label: 44 messages (block warnings, cover, embeds, table of contents, chat archives) exist in French, English and German.
-- Page warnings are now plain-text quotes: Anytwo displays quote text verbatim, so the `**` markers were showing up on the page. Note that quotes do not interpret inline formatting, unlike paragraphs.
-- On the report and log side, 52 engine messages that stayed in French (view errors, system properties, Notion progress, resumed reads) were added to the browser translation catalog.
-- Validation: 301 Python tests including a new `test_page_text.py` module (complete catalog, language-code normalization, no `**` inside quotes, engine in English), then a scripted check of 121 engine messages: 0 left untranslated.
+- [Anytype v2 API](https://developers.anytype.io/docs/reference/v2/)
+- [AnyBlock v2 format](https://github.com/anyproto/any-block/blob/main/format/v2/SPEC.md)
+- [Anytwo HTTP API](https://docs.any.org/reference/http-api.html)
+- [Anytwo reading and filters](https://docs.any.org/database/reading-data.html)
+- [Anytwo editor](https://docs.any.org/types/editor.html)

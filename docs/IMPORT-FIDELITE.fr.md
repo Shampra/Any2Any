@@ -1,5 +1,7 @@
 # Fidélité des imports Anytype
 
+**[Français](IMPORT-FIDELITE.fr.md) · [English](IMPORT-FIDELITE.en.md)**
+
 Ce document décrit le comportement actuel du convertisseur. Le [guide d’utilisation Anytype](NOTES-TECHNIQUES.fr.md) présente la sélection et les accès. Le [changelog](../CHANGELOG.md) conserve l’historique des changements.
 
 ## Propriétés et collections
@@ -13,6 +15,8 @@ Les paramètres compatibles, notamment la présence d’heure et les options de 
 Une date avec heure est stockée dans un descripteur datetime, même si la source annonce une simple date. Ce choix est effectué avant l’écriture des valeurs et préserve les tris. Les dates système source nécessaires aux vues sont conservées dans des colonnes distinctes des nouvelles dates de création de la destination.
 
 Les propriétés fichiers/images ne deviennent pas des colonnes texte. Lorsque la récupération est activée, leur contenu est ajouté au début de la page sous le libellé de la propriété. Les images utilisent leur rendu intégré et les autres fichiers un lien de pièce jointe. Cette adaptation figure au bilan.
+
+La comptabilité interne d’Anytype (`source_object`, `template_name_prefill_type` et les autres champs système de la liste interne) n’est jamais importée comme colonne. Ces clés sont reconnues par identifiant, jamais par libellé ni par préfixe : une propriété utilisateur nommée `template_notes`, dont la clé est un identifiant généré, reste importée. Un réglage de template non transposable est signalé dans le bilan.
 
 ## Liens et fichiers
 
@@ -52,7 +56,9 @@ Les toggles et titres repliables utilisent les marqueurs natifs `any:collapsible
 
 Les vidéos YouTube utilisent une enveloppe native `embed`. Les fichiers audio utilisent les liens de fichiers reconnus par le lecteur du client. Les icônes utilisent la propriété universelle `any.icon`, avec un emoji ou une référence de fichier. Les bookmarks enrichis deviennent des liens titrés.
 
-Le soulignement dépend du support Markdown de la version Anytwo. Les couleurs de texte, de fond, de blocs, de cellules et de callouts, l’alignement et les mises en page avancées avec vues dans des callouts ou colonnes restent des limites. Les balises de code sont conservées littéralement.
+Sur les versions qui stockent les commentaires HTML comme blocs génériques, les enveloppes `any:collapsible`, `any:columns` et `any:block` sont écrites en Markdown simple : titre en gras ou en titre, colonnes l’une après l’autre, lien pour l’intégration. Le sommaire dynamique natif est conservé lorsqu’il est pris en charge et ne disparaît jamais silencieusement.
+
+Le soulignement dépend du support Markdown de la version Anytwo. Les couleurs de texte, de fond, de blocs, de cellules et de callouts, l’alignement et les mises en page avancées avec vues dans des callouts ou colonnes restent des limites. Les balises de code sont conservées littéralement, y compris à l’intérieur des blocs de code.
 
 ## Widgets et chats
 
