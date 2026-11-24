@@ -154,3 +154,10 @@ Anytype keeps its internal bookkeeping in the same property map as user values. 
 - The migrator reads the server version. From 0.5.0 on it writes plain Markdown instead: a bold title (or a `#` heading for toggle headings), its content right after, columns rendered one after another, video embeds replaced by their link, and image width omitted. A log message explains the fallback, and the report keeps no per-page warning.
 - Verification on real source pages: 25 to 31 envelopes per page become 0, and a real write into a test space stores no `html` block at all.
 - A relation whose targets were not all imported no longer creates a duplicate `X (Anytype)` text column: the declared relation column is kept and only the missing references are dropped. A relation with no imported target writes nothing at all. A duplicate column created by an earlier import still has to be deleted by hand.
+
+## Page content language — 23 November 2026 follow-up
+
+- Text written into pages follows the language chosen in the interface. The import plan carries the selected language (`fr`, `en`, `de`) and the engine uses it for every page warning and label: 44 messages (block warnings, cover, embeds, table of contents, chat archives) exist in French, English and German.
+- Page warnings are now plain-text quotes: Anytwo displays quote text verbatim, so the `**` markers were showing up on the page. Note that quotes do not interpret inline formatting, unlike paragraphs.
+- On the report and log side, 52 engine messages that stayed in French (view errors, system properties, Notion progress, resumed reads) were added to the browser translation catalog.
+- Validation: 301 Python tests including a new `test_page_text.py` module (complete catalog, language-code normalization, no `**` inside quotes, engine in English), then a scripted check of 121 engine messages: 0 left untranslated.

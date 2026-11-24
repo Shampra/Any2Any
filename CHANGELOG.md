@@ -8,6 +8,7 @@
 - Stop importing Anytype record bookkeeping (`Source object`, `template_name_prefill_type` and other internal keys) as Anytwo columns, and remove such columns created by an import.
 - Fix property write failures: empty url/email/phone/number/date values are skipped instead of aborting the property, and relation columns always receive `any://` URI arrays.
 - Stop creating a duplicate `X (Anytype)` text column when relation values point to objects that are not imported: the relation column is kept and only the missing references are dropped.
+- Write page warnings and labels in the language chosen in the interface (French, English, German), and remove the bold markers that Anytwo displayed verbatim inside quotes.
 - Keep toggles, columns and embedded media readable on Anytwo 0.5: the client now shows the native comment envelopes as page text, so these blocks are written as plain Markdown (bold or heading titles, sequential columns, link for embeds) with a warning in the report.
 - Translate the whole interface: every static label, plus report issues, API errors, progress and simulation messages, in English and German. The import window now fits the screen without zooming out.
 - Publish French and English editions of every technical guide, with language switchers.
@@ -19,6 +20,7 @@
 - Ne plus importer la comptabilité interne d’Anytype (`Source object`, `template_name_prefill_type` et autres clés internes) comme colonnes Anytwo, et supprimer celles créées par un import.
 - Corriger les échecs d’écriture de propriétés : les valeurs url/email/téléphone/nombre/date vides sont ignorées au lieu d’annuler la propriété, et les colonnes de relation reçoivent toujours des tableaux d’URI `any://`.
 - Ne plus créer de colonne texte en double « X (Anytype) » quand une relation pointe vers des objets non importés : la colonne de relation est conservée et seules les références absentes sont écartées.
+- Écrire les avertissements et libellés des pages dans la langue choisie dans l’interface (français, anglais, allemand) et retirer les marqueurs de gras qu’Anytwo affichait tels quels dans les citations.
 - Garder les blocs repliables, les colonnes et les médias intégrés lisibles sur Anytwo 0.5 : le client affiche désormais les enveloppes de commentaires comme du texte, ces blocs sont donc écrits en Markdown simple (titre en gras ou en titre, colonnes successives, lien pour les intégrations) avec un avertissement dans le bilan.
 - Traduire toute l’interface : libellés statiques, problèmes du bilan, erreurs d’API, progression et messages de simulation, en anglais et en allemand. La fenêtre d’import tient désormais dans l’écran sans zoom arrière.
 - Publier chaque guide technique en français et en anglais, avec un sélecteur de langue.

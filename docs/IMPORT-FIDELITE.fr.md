@@ -154,3 +154,10 @@ Anytype range sa comptabilité interne dans la même table de propriétés que l
 - Le migrateur détecte la version du serveur. À partir de 0.5.0 il écrit un Markdown simple : titre en gras (ou en titre `#` pour les titres repliables), contenu à la suite, colonnes rendues l’une après l’autre, intégration vidéo remplacée par son lien, largeur d’image omise. Un message du journal explique ce repli, et le bilan reste sans avertissement par objet.
 - Vérification sur des pages réelles de la source : 25 à 31 enveloppes par page deviennent 0, et une écriture réelle dans un espace de test ne contient plus aucun bloc `html`.
 - Une relation dont certaines cibles ne sont pas importées ne crée plus de colonne texte en double « X (Anytype) » : la colonne de relation déclarée est conservée et seules les références absentes sont écartées. Une relation dont toutes les cibles manquent n’écrit rien du tout. La colonne en double créée par un import antérieur reste à supprimer à la main.
+
+## Langue du contenu des pages — complément du 23 novembre 2026
+
+- Le texte écrit dans les pages suit la langue choisie dans l’interface. Le plan d’import transmet la langue sélectionnée (`fr`, `en`, `de`) et le moteur la reprend pour chaque avertissement et libellé de page : 44 messages (avertissements de blocs, couverture, intégrations, sommaire, archives de chat) existent en français, anglais et allemand.
+- Les avertissements de page sont désormais des citations en texte simple : Anytwo affiche le contenu d’une citation tel quel, donc les `**` apparaissaient dans la page. Rappel : les citations n’interprètent pas la mise en forme en ligne, contrairement aux paragraphes.
+- Côté rapport et journal, 52 messages du moteur qui restaient en français (erreurs de vue, propriétés système, progression Notion, reprises de lecture) ont été ajoutés au catalogue de traduction du navigateur.
+- Validation : 301 tests Python dont un nouveau module `test_page_text.py` (catalogue complet, normalisation des codes de langue, absence de `**` dans les citations, moteur en anglais), puis contrôle par script de 121 messages du moteur : 0 reste non traduit.
