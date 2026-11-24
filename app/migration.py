@@ -206,10 +206,39 @@ def import_artifacts(doc, vocabulary=None):
     found = {}
     for key in props:
         identity = property_identity(doc, key)
-        if not internal_record_property(identity): continue
+        if not _is_system_identity(identity, key, vocabulary): continue
         meta = (vocabulary or {}).get(_normalized_key(identity)) or {}
         found[str(meta.get('name') or identity)] = identity
     return found
+
+
+def _system_meta(meta):
+    """True when a vocabulary entry declares a system/hidden/internal property."""
+    if not isinstance(meta, dict):
+        return False
+    if any(meta.get(flag) is True for flag in ('hidden','is_hidden','isHidden',
+                                               'system','is_system','isSystem',
+                                               'internal','is_internal','isInternal')):
+        return True
+    return _normalized_key(meta.get('internal_key')) in SYSTEM
+
+
+def _is_system_identity(identity, name, vocabulary=None):
+    """True when this identity is a verified Anytype system property.
+
+    A document may key properties by label. Without a `property_internal_keys`
+    alias, the vocabulary disambiguates: an entry describing a custom property
+    (different key/id, no system flag) keeps the label-keyed value.
+    """
+    key = _normalized_key(identity)
+    if not (internal_record_property(identity) or key in SYSTEM):
+        return False
+    if str(identity) != str(name or ''):
+        return True
+    meta = (vocabulary or {}).get(str(name or '').casefold()) or {}
+    identities = {_normalized_key(meta.get(field))
+                  for field in ('key','id','internal_key') if meta.get(field)}
+    return not (identities and key not in identities and not _system_meta(meta))
 
 
 def internal_property(name, vocabulary=None, doc=None):
@@ -220,18 +249,11 @@ def internal_property(name, vocabulary=None, doc=None):
     a reason to discard user data.
     """
     identity = property_identity(doc, name)
-    key = _normalized_key(identity)
-    if internal_record_property(identity) or key in SYSTEM:
+    if _is_system_identity(identity, name, vocabulary):
         return True
     vocab = vocabulary or {}
-    meta = vocab.get(key) or vocab.get(_normalized_key(name)) or {}
-    if not isinstance(meta, dict):
-        return False
-    if any(meta.get(flag) is True for flag in ('hidden','is_hidden','isHidden',
-                                             'system','is_system','isSystem',
-                                             'internal','is_internal','isInternal')):
-        return True
-    return _normalized_key(meta.get('internal_key')) in SYSTEM
+    meta = vocab.get(str(name or '').casefold()) or vocab.get(_normalized_key(identity)) or {}
+    return _system_meta(meta)
 
 
 def custom_properties(doc, vocabulary=None):
@@ -1006,10 +1028,10 @@ class Engine:
                              or _normalized_key(key) in TEMPLATE_SETTING_KEYS}
         if template_settings:
             self.report.setdefault('template_settings_not_translated', []).extend(sorted(template_settings))
-        identities = {_normalized_key(key) for key in artifacts.values()}
+        identities = {str(key).casefold() for key in artifacts.values()}
         removed = []
         for column in self.created_columns:
-            source = _normalized_key(column.get('source_key'))
+            source = str(column.get('source_key') or '').casefold()
             if not source or source not in identities: continue
             cid = column['collection_id']; prop_id = column['property_id']
             try:
@@ -1205,9 +1227,11 @@ class Engine:
                 if name not in names:names.append(name)
         for name in names:
             if name.casefold()=='name':continue
-            if name!='type' and internal_record_property(name):continue
             declared=next((v for v in block.get('properties',[]) if str(v.get('property','')).casefold()==name.casefold()),{})
             source_spec=converter.metadata.get(name.casefold()) or declared
+            if name!='type':
+                identity=str(source_spec.get('internal_key') or source_spec.get('key') or source_spec.get('id') or '')
+                if internal_record_property(identity or name):continue
             if source_spec.get('format') == 'files':
                 continue
             candidates=[] if name=='type' else converter.bindings.get(name.casefold(),[])
@@ -1232,7 +1256,7 @@ class Engine:
                         kind=declared_column_shape({**spec,'format':spec.get('format') or 'text'})[0]
                         pid,actual=self.property(scope,str(spec.get('name') or name),spec.get('format') or 'text',None,issues,converter.metadata,
                             override=(kind,deepcopy(form)),
-                            source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or name))
+                            source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or '') or None)
                         target_binding=(scope+'.'+pid,spec,actual)
                     for oid in included:
                         values=[]
@@ -1288,7 +1312,7 @@ class Engine:
             if fmt=='date' and found and any(date_has_time(v) for _,v in found):
                 form['type']='datetime'
             pid,actual=self.property(scope,spec['name'],fmt,found[0][1] if found else None,issues,converter.metadata,override=(kind,form),
-                source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or name))
+                source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id') or '') or None)
             bindings[name.casefold()]=[(scope+'.'+pid,spec,actual)]
             for index,(oid,value) in enumerate(found):
                 converted=references[index] if fmt=='objects' else column_shape(fmt,value,issues)[2]
@@ -1723,7 +1747,7 @@ class Engine:
                         form['type']='datetime'
                     pid,actual_form=self.property(primary,label,fmt,value,r['issues'],metadata,
                                                   override=(kind,form),
-                                                  source_key=str(meta.get('internal_key') or meta.get('key') or name))
+                                                  source_key=str(meta.get('internal_key') or meta.get('key') or '') or None)
                     if fmt in ('select','multi_select'):
                         # Options must be extended in a later pass if the column pre-exists.
                         options=actual_form.setdefault('options',{}) if isinstance(actual_form,dict) else {}

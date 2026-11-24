@@ -299,6 +299,29 @@ class ImportArtifactTests(unittest.TestCase):
             {'property':'source_object','name':'Source object','format':'objects'}]}, {})
         self.assertEqual([x['key'] for x in result], ['abc123'])
 
+    def test_label_keyed_property_is_kept_when_the_vocabulary_describes_a_custom_entry(self):
+        # No alias map: the document keys the property by its label.
+        doc={'properties':{'Source object':['bafy-x']}}
+        vocabulary={'source object':{'name':'Source object','key':'abc123','format':'objects'}}
+        self.assertEqual(custom_properties(doc,vocabulary),{'Source object':['bafy-x']})
+
+    def test_label_keyed_system_property_is_still_dropped(self):
+        doc={'properties':{'Source object':['bafy-x']}}
+        vocabulary={'source object':{'name':'Source object','key':'source_object','format':'objects',
+                                     'hidden':True}}
+        self.assertEqual(custom_properties(doc,vocabulary),{})
+
+    def test_cleanup_compares_identities_exactly(self):
+        from migration import Engine
+        engine=Engine.__new__(Engine)
+        engine.target=object(); engine.dest_sid='dest'
+        engine.created_columns=[
+            {'source_key':'source-object','collection_id':'c1','property_id':'p-dash','label':'Source object'}]
+        engine.report={}
+        with patch('migration.delete_column') as delete:
+            engine.remove_import_artifacts([{'properties':{'source_object':['x']}}], {})
+        delete.assert_not_called()
+
     def test_artifact_cleanup_only_deletes_tracked_system_columns(self):
         # A user column labelled like a system field must survive cleanup.
         from migration import Engine
