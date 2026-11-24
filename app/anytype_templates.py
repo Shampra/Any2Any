@@ -109,8 +109,11 @@ class Templates:
                     continue
                 for saved in engine.written_properties.get(oid, {}).values():
                     try:
+                        spec = saved.get('spec') or {}
+                        identity = str(spec.get('internal_key') or spec.get('key') or spec.get('id') or '')
                         pid, form = engine.property(cid, saved['label'], saved['format'], None,
-                            result['issues'], {}, override=(saved['kind'], deepcopy(saved['form'])))
+                            result['issues'], {}, override=(saved['kind'], deepcopy(saved['form'])),
+                            source_key=identity or None)
                         value = deepcopy(saved['value'])
                         if saved['format'] in ('select', 'multi_select'):
                             keys = {opt['name']:key for key,opt in form.get('options', {}).items()}

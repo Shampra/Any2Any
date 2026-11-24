@@ -13,7 +13,7 @@ from copy import deepcopy
 from rich_content import (ImportedFile, inline_html, native_columns, native_toggle,
                           descendant_end, rebase, depth as block_depth, youtube_markdown,
                           file_html, file_anchor_html, checkbox_html, remove_unsupported_inline, image_markdown,
-                          image_width, legacy_markup, envelopes_supported)
+                          image_width, legacy_markup, envelopes_supported, feature_envelope_supported)
 from file_transfer import FileLibrary, strip_import_prefix
 from view_conversion import (choice_options, enrich_descriptor, ViewConverter,
                              create_saved_views, modify_records, UnsupportedView)
@@ -162,6 +162,27 @@ INTERNAL_RECORD_PROPERTIES = frozenset({
     'cover_id', 'cover_type', 'cover_x', 'cover_y', 'cover_scale',
     'icon_name', 'icon_option', 'plural_name', 'layout_width',
 })
+# Anytype template internals that carry record settings rather than user values.
+TEMPLATE_SETTING_KEYS = frozenset({'default_template_id', 'default_type_id', 'default_view_type'})
+
+
+def _normalized_key(value):
+    return str(value or '').replace('-', '_').replace(' ', '_').casefold()
+
+
+def property_identity(doc, name):
+    """Authoritative Anytype identity of a property key or label.
+
+    `property_internal_keys` maps a human label to the real internal key. When
+    it does, that key is the identity and the label must never be compared with
+    the system-name list; a custom property may legitimately be called
+    "Source object" while its identity is a generated id.
+    """
+    aliases = (doc or {}).get('property_internal_keys') or {}
+    alias = aliases.get(name)
+    return str(alias if alias is not None else (name or ''))
+
+
 def internal_record_property(identifier):
     """True for Anytype record bookkeeping keys that are never user columns.
 
@@ -169,55 +190,55 @@ def internal_record_property(identifier):
     User property keys are generated ids and may share a display label with a
     system field, so a `template_` prefix is never a signal of system origin.
     """
-    key = str(identifier or '').replace('-', '_').replace(' ', '_').casefold()
+    key = _normalized_key(identifier)
     return bool(key) and key in INTERNAL_RECORD_PROPERTIES
 
 
 def import_artifacts(doc, vocabulary=None):
-    """Labels of bookkeeping properties present in a source document.
+    """Verified system identities present in a source document.
 
-    Only identifiers Anytype itself declares are returned, so a same-named
-    user column is never reported as an artifact.
+    Only identifiers Anytype itself declares are returned, resolved through
+    `property_internal_keys`, so a same-named user property is never reported
+    as an artifact.
     """
     props = doc.get('properties')
     if not isinstance(props, dict): return {}
-    aliases = doc.get('property_internal_keys') or {}
     found = {}
     for key in props:
-        if not internal_record_property(key): continue
-        internal = str(aliases.get(key) or key)
-        meta = (vocabulary or {}).get(internal.casefold()) or {}
-        found[str(meta.get('name') or internal)] = internal
+        identity = property_identity(doc, key)
+        if not internal_record_property(identity): continue
+        meta = (vocabulary or {}).get(_normalized_key(identity)) or {}
+        found[str(meta.get('name') or identity)] = identity
     return found
 
 
 def internal_property(name, vocabulary=None, doc=None):
     """Exclude documented system keys and explicitly hidden Anytype metadata.
 
-    Never use a generic `unknown` format as a reason to discard user data.
+    Classification uses the resolved identity, never a display label whose
+    alias points at a custom property. Never use a generic `unknown` format as
+    a reason to discard user data.
     """
-    key = str(name).replace('-', '_').replace(' ', '_').casefold()
-    alias = (doc or {}).get('property_internal_keys') or {}
-    internal = str(alias.get(name) or '').replace('-', '_').casefold()
-    if key in SYSTEM or internal in SYSTEM:
+    identity = property_identity(doc, name)
+    key = _normalized_key(identity)
+    if internal_record_property(identity) or key in SYSTEM:
         return True
     vocab = vocabulary or {}
-    meta = vocab.get(key) or vocab.get(internal) or {}
+    meta = vocab.get(key) or vocab.get(_normalized_key(name)) or {}
     if not isinstance(meta, dict):
         return False
     if any(meta.get(flag) is True for flag in ('hidden','is_hidden','isHidden',
                                              'system','is_system','isSystem',
                                              'internal','is_internal','isInternal')):
         return True
-    return str(meta.get('internal_key') or '').casefold() in SYSTEM
+    return _normalized_key(meta.get('internal_key')) in SYSTEM
 
 
 def custom_properties(doc, vocabulary=None):
     props = doc.get('properties')
     if not isinstance(props, dict): return {}
     return {str(key): value for key, value in props.items()
-            if not internal_record_property(key) and not internal_property(key, vocabulary, doc)
-            and value is not None}
+            if not internal_property(key, vocabulary, doc) and value is not None}
 
 
 def is_bookmark(obj, doc=None):
@@ -882,11 +903,10 @@ def declared_properties(type_document, vocabulary):
         if not isinstance(raw, dict): continue
         key = str(raw.get('property') or raw.get('key') or raw.get('name') or '').strip()
         if not key: continue
-        meta = vocabulary.get(key.casefold()) or {}
+        identity = str(raw.get('internal_key') or key)
+        meta = vocabulary.get(_normalized_key(identity)) or vocabulary.get(key.casefold()) or {}
         label = str(raw.get('name') or meta.get('name') or key)
-        normalized = label.casefold().replace('-', '_').replace(' ', '_')
-        if (internal_record_property(key) or internal_record_property(raw.get('internal_key'))
-                or internal_property(label, vocabulary) or internal_property(key, vocabulary)
+        if (internal_record_property(identity) or internal_property(identity, vocabulary)
                 or key.casefold() in seen):
             continue
         fmt = str(raw.get('format') or meta.get('format') or 'text').casefold()
@@ -982,15 +1002,15 @@ class Engine:
             artifacts.update(import_artifacts(doc, vocabulary))
         if not artifacts: return []
         template_settings = {key for key in artifacts.values()
-                             if str(key).replace('-', '_').replace(' ', '_').casefold().startswith('template_')}
+                             if _normalized_key(key).startswith('template_')
+                             or _normalized_key(key) in TEMPLATE_SETTING_KEYS}
         if template_settings:
             self.report.setdefault('template_settings_not_translated', []).extend(sorted(template_settings))
-        identities = {str(key).replace('-', '_').replace(' ', '_').casefold()
-                      for key in artifacts.values()}
+        identities = {_normalized_key(key) for key in artifacts.values()}
         removed = []
         for column in self.created_columns:
-            source = str(column.get('source_key') or '').replace('-', '_').replace(' ', '_').casefold()
-            if source not in identities: continue
+            source = _normalized_key(column.get('source_key'))
+            if not source or source not in identities: continue
             cid = column['collection_id']; prop_id = column['property_id']
             try:
                 delete_column(self.target, self.dest_sid, cid, prop_id)
@@ -1132,8 +1152,10 @@ class Engine:
             issues.add(f'Propriété « {name} » : même nom mais format différent dans la collection cible')
             name += ' (Anytype)'
         pid = add_column(self.target,self.dest_sid,cid,name,slug(name,(cid,name,fmt)),kind,form)
-        self.created_columns.append({'source_key':source_key or name,'collection_id':cid,
-                                     'property_id':pid,'label':name})
+        # Track the exact source identity so cleanup can never match a label.
+        if source_key:
+            self.created_columns.append({'source_key':source_key,'collection_id':cid,
+                                         'property_id':pid,'label':name})
         self.prop_cache[key]=(pid,form)
         return self.prop_cache[key]
 
@@ -1615,7 +1637,7 @@ class Engine:
                     try:
                         pid,form=self.property(cid,spec['name'],spec['format'],None,issues,metadata,
                                       override=(declared_column_shape(spec)[0], enrich_descriptor(spec, declared_column_shape(spec)[1], issues)),
-                                      source_key=str(spec.get('key') or spec.get('internal_key') or spec.get('id')))
+                                      source_key=str(spec.get('internal_key') or spec.get('key') or spec.get('id')))
                         for alias in (spec['key'],spec['name'],spec.get('id'),spec.get('internal_key')):
                             if alias:
                                 binding=(cid+'.'+pid,spec,form)
@@ -1766,7 +1788,8 @@ class Engine:
                 for index, block in enumerate(doc.get('blocks') or []):
                     if isinstance(block, dict) and block.get('type') in ('table_of_contents','tableOfContents'):
                         token = marker('toc', oid, str(block.get('id') or index))
-                        if block_depth(block) == 0:
+                        if (block_depth(block) == 0
+                                and feature_envelope_supported(self.destination_version, 'table-of-contents')):
                             block.update(type='any2any_toc', markdown=envelope(
                                 'table-of-contents', instance_id(oid, str(block.get('id') or index)), {}, ''))
                         else:

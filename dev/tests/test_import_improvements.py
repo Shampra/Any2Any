@@ -276,10 +276,28 @@ class ImportArtifactTests(unittest.TestCase):
 
     def test_custom_properties_keep_a_template_prefixed_user_key(self):
         doc={'properties':{'name':'Kitty','template_notes':'A user note',
-                           'template_name_prefill_type':1},
-             'property_internal_keys':{'660578238cec08068e66a674':'template_notes'}}
+                           'template_name_prefill_type':1}}
         self.assertEqual(custom_properties(doc, {}),
                          {'template_notes':'A user note'})
+
+    def test_custom_label_with_custom_identity_is_not_a_system_property(self):
+        doc={'properties':{'Source object':['bafy-x'],'notes':'A note'},
+             'property_internal_keys':{'Source object':'660578238cec08068e66a674'}}
+        self.assertEqual(custom_properties(doc, {}),
+                         {'Source object':['bafy-x'],'notes':'A note'})
+
+    def test_system_identity_under_a_custom_label_is_excluded(self):
+        doc={'properties':{'Prefill':1,'notes':'A note'},
+             'property_internal_keys':{'Prefill':'template_name_prefill_type'}}
+        self.assertEqual(custom_properties(doc, {}), {'notes':'A note'})
+        self.assertEqual(import_artifacts(doc),
+                         {'template_name_prefill_type':'template_name_prefill_type'})
+
+    def test_declared_properties_keep_a_custom_identity_with_a_system_like_label(self):
+        result=declared_properties({'property_definitions':[
+            {'property':'abc123','name':'Source object','format':'text'},
+            {'property':'source_object','name':'Source object','format':'objects'}]}, {})
+        self.assertEqual([x['key'] for x in result], ['abc123'])
 
     def test_artifact_cleanup_only_deletes_tracked_system_columns(self):
         # A user column labelled like a system field must survive cleanup.
@@ -296,6 +314,47 @@ class ImportArtifactTests(unittest.TestCase):
             removed=engine.remove_import_artifacts(docs, vocabulary)
         delete.assert_called_once_with(engine.target,'dest','c1','p-sys')
         self.assertEqual(removed,[{'name':'Source object','collection_id':'c1','property_id':'p-sys'}])
+
+    def test_property_tracks_the_source_identity_end_to_end(self):
+        from migration import Engine
+        engine=Engine.__new__(Engine)
+        engine.target=object(); engine.dest_sid='dest'
+        engine.prop_cache={}; engine.col_cache={}; engine.created_columns=[]
+        engine.inv={'types':[]}; engine.report={}
+        with patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',return_value='p1'),\
+             patch('migration.delete_column') as delete:
+            pid,_=engine.property('c1','Source object','text','x',set(),{},
+                                  source_key='source_object')
+            removed=engine.remove_import_artifacts(
+                [{'properties':{'source_object':['x']}}],
+                {'source_object':{'name':'Source object','format':'objects'}})
+        self.assertEqual(pid,'p1')
+        self.assertEqual(engine.created_columns[0]['source_key'],'source_object')
+        delete.assert_called_once_with(engine.target,'dest','c1','p1')
+        self.assertEqual(removed[0]['property_id'],'p1')
+
+    def test_property_without_a_source_identity_is_not_tracked_for_cleanup(self):
+        from migration import Engine
+        engine=Engine.__new__(Engine)
+        engine.target=object(); engine.dest_sid='dest'
+        engine.prop_cache={}; engine.col_cache={}; engine.created_columns=[]
+        engine.inv={'types':[]}
+        with patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',return_value='p1'):
+            engine.property('c1','Source object','text','x',set(),{})
+        self.assertEqual(engine.created_columns,[])
+
+    def test_untranslated_template_settings_are_reported(self):
+        from migration import Engine
+        engine=Engine.__new__(Engine)
+        engine.target=object(); engine.dest_sid='dest'
+        engine.created_columns=[]; engine.report={}
+        engine.remove_import_artifacts(
+            [{'properties':{'template_name_prefill_type':1,'default_template_id':'x'}}], {})
+        reported=engine.report['template_settings_not_translated']
+        self.assertIn('template_name_prefill_type',reported)
+        self.assertIn('default_template_id',reported)
 
     def test_empty_url_and_relative_url_values_do_not_fail_the_page(self):
         class Source:
@@ -366,6 +425,22 @@ class ImportArtifactTests(unittest.TestCase):
         markdown='Before\n\n```html\n<!-- any:block {"kind":"embed"} -->\n```\n\nAfter'
         self.assertEqual(legacy_markup(markdown),
                          'Before\n\n```html\n<!-- any:block {"kind":"embed"} -->\n```\n\nAfter')
+
+    def test_legacy_markup_preserves_longer_and_tilde_fences(self):
+        longer='````md\n```\n<!-- any:block {"kind":"embed"} -->\n```\n````'
+        self.assertEqual(legacy_markup(longer),longer)
+        tildes='~~~\n<!-- any:block {"kind":"embed"} -->\n~~~'
+        self.assertEqual(legacy_markup(tildes),tildes)
+
+    def test_legacy_markup_protects_an_unclosed_fence(self):
+        markdown='Intro\n```\n<!-- any:block {"kind":"embed"} -->\nnever closed'
+        self.assertEqual(legacy_markup(markdown),markdown)
+
+    def test_legacy_markup_still_strips_envelopes_outside_fences(self):
+        markdown='<!-- any:columns {"widths":[1,1]} -->\n\n```\n<!-- kept -->\n```'
+        plain=legacy_markup(markdown)
+        self.assertNotIn('any:columns',plain)
+        self.assertIn('<!-- kept -->',plain)
 
     def test_legacy_markup_preserves_native_toc(self):
         toc=('<!-- any:block {"v":1,"kind":"table-of-contents","schema":1,'
