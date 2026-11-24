@@ -52,6 +52,15 @@ def ui_clause(converter,node,identity,*,inactive=False):
                 'children':[ui_clause(converter,n,identity+'-'+str(i)) for i,n in enumerate(node['filters'])]}
     prop,spec,form=ui_field(converter,node['property'])
     op=node['condition'];fmt=spec.get('format');value=node.get('value')
+    if op in ('empty', 'not_empty'):
+        kind = {'text':'text', 'url':'text', 'email':'text', 'phone':'text',
+                'number':'number', 'date':'date', 'select':'choice',
+                'multi_select':'choice', 'objects':'choice'}.get(fmt)
+        if kind is None:
+            raise UnsupportedView('Filtre vide non transposable en ligne : '+str(fmt))
+        condition = {'kind':kind, 'operator':'empty' if op=='empty' else 'not-empty'}
+        condition.update({'values':[]} if kind=='choice' else {'value':''})
+        return {'id':identity, 'propertyId':prop, 'condition':condition}
     if fmt in ('text','url','email','phone'):
         operator={'equal':'is','not_equal':'is-not','contains':'contains','not_contains':'does-not-contain',
                   'notion_contains':'contains','notion_not_contains':'does-not-contain'}.get(op)
@@ -69,9 +78,12 @@ def ui_clause(converter,node,identity,*,inactive=False):
         if op not in ('equal','not_equal') or not isinstance(value,bool):raise UnsupportedView('Filtre booléen non transposable')
         condition={'kind':'boolean','value':value if op=='equal' else not value}
     elif fmt in ('select','multi_select','objects'):
-        operator={'in':'contains','not_in':'does-not-contain','all_in':'is'}.get(op)
+        operator={'in':'contains','not_in':'does-not-contain','all_in':'is',
+                  'equal':'is','not_equal':'is-not'}.get(op)
         if operator is None:raise UnsupportedView('Filtre de liste non transposable dans une vue en ligne')
         values=converter.value(value,spec,form)
+        if op in ('equal','not_equal'):
+            values = values if isinstance(values,list) else [values]
         if not values and not inactive:raise UnsupportedView('Filtre de liste vide ignoré par le client Inline view')
         # The client turns raw object IDs into any:// references itself.
         if fmt=='objects':values=[v.removeprefix('any://') for v in values]

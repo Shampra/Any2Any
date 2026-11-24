@@ -1,122 +1,51 @@
-# Any2Any — Migrateur Anytype → Anytwo (v0.9.3)
+# Import Anytype vers Anytwo
 
-**[Français](NOTES-TECHNIQUES.fr.md) · [English](NOTES-TECHNIQUES.en.md)**
+Any2Any lit l’API locale Anytype v2 et écrit dans Anytwo via le moteur de destination partagé. L’application commune propose Anytype ou Notion au démarrage. Le [guide Notion](NOTION-IMPORT.fr.md) décrit l’autre source.
 
-La version commune se lance avec Any2Any.exe dans l’archive Windows autonome, ou demarrer.bat dans la version source et propose Anytype ou Notion avant les vérifications d’accès. Ce document détaille principalement la source Anytype ; le parcours Notion est décrit dans [NOTION-IMPORT.fr.md](NOTION-IMPORT.fr.md).
+## Connexion et lancement
 
-**Version du projet : 0.11.0.** Les sections de changements ci-dessous retracent les versions précédentes. Les améliorations actuelles sont détaillées dans [le journal bilingue](../CHANGELOG.md) et [la fidélité des imports](IMPORT-FIDELITE.fr.md).
+L’archive Windows autonome se lance avec `Any2Any.exe`. La version source demande Python 3.10 ou ultérieur et se lance avec `demarrer.bat` ou `python app/server.py`. L’interface écoute sur `127.0.0.1`, à partir du port `8766`.
 
-Application Python + interface web locale permettant d'importer des espaces, collections, types et objets Anytype dans Anytwo. **L'import simple crée réellement des données dans Anytwo.** La source Anytype est toujours interrogée en lecture seule. L'option « Avec synchronisation » n'est **pas encore opérationnelle** et ne permet pas l'import réel.
+Anytype et Anytwo doivent être ouverts. Anytype utilise normalement le port `31009`, avec une clé obtenue par appairage. Le bouton d’état des API permet de vérifier ou modifier les accès. Le port Anytwo est détecté automatiquement lorsque possible, avec `31310` comme port habituel.
 
-> **À lire avant un premier essai** : les tests automatisés avec des API HTTP locales simulées sont complétés par des vérifications ciblées des API et du code du client installé, ainsi que par des essais manuels du propriétaire du projet. Cela ne constitue pas une validation exhaustive de tous les contenus. L'API Anytype v2 est une préversion évolutive. Commencez avec 1 ou 2 pages et un **espace Anytwo de test**, sauvegardez vos données et comparez le résultat. Il n'existe **aucun retour arrière automatique**. Un deuxième import simple créera de nouvelles copies.
+Les réglages et bilans du profil commun sont conservés dans `%APPDATA%/any2any` sous Windows. Les secrets mémorisés sont protégés par Windows DPAPI. Les profils de développement utilisent leurs propres répertoires. Le mode `--demo` permet d’explorer les deux sources avec des données fictives et désactive les imports réels.
 
-## Démarrer sous Windows
+## Sélection et destination
 
-1. Installer Python **3.10 ou plus récent** si nécessaire.
-2. Décompresser toute l'archive.
-3. Ouvrir **Anytype** et **Anytwo** et laisser les espaces charger.
-4. Double-cliquer sur **`demarrer.bat`**, ou exécuter `python app/server.py`.
-5. Dans le navigateur local, autoriser Anytype (code à quatre chiffres dans sa fenêtre), puis sélectionner la source et la destination.
-6. Lancer **Tester** pour une simulation de périmètre, puis **Importer** pour les écritures réelles (confirmation supplémentaire).
+L’utilisateur peut choisir un espace, une collection, des types ou des objets. L’option des éléments liés ajoute les références accessibles dans le même espace, y compris les documents de vues intégrées dont les filtres sont évaluables. Pour un espace entier, cette option est désactivée dans l’interface. Le bilan précise la raison de chaque inclusion.
 
-Pour explorer l'interface sans application ouverte : `demo.bat` ou `python app/server.py --demo`. Le bouton d'import **reste désactivé en démonstration**.
+La destination est un espace existant ou un nouvel espace. Les collections source deviennent des collections Anytwo, avec leurs supertags et leurs propriétés. Une collection de type sert de repli aux objets qui ont des propriétés et ne sont membres d’aucune collection importée, ou lorsqu’une destination par type est explicitement choisie.
 
-Aucune dépendance Python supplémentaire n'est obligatoire. L'application web se limite à `127.0.0.1`, sur un port à partir de `8766`. Laisser ouverte la fenêtre console pendant l'utilisation.
+Les pages sont créées avant la reconstruction de leurs liens. Les liens vers une collection ciblent directement la collection. Les collections référencées par une vue peuvent aussi être reprises lorsqu’elles sont archivées côté Anytype. Leurs vues restent limitées au périmètre des objets effectivement importés.
 
-**Connexion** : Anytype écoute normalement sur `31009` avec une clé API obtenue par appairage. Anytwo est détecté automatiquement (`31310`, `7001`, `2657`, `5344`, puis ports en écoute de `any.exe` sous Windows), ou via le bouton de statut « API ». Les ports sont mémorisés sous `%APPDATA%\anytype-anytwo-importer\settings.json`. La clé Anytype est protégée par Windows DPAPI (permissions de fichier utilisateur sous macOS/Linux).
+## Contenu et propriétés
 
-## Ce que fait l'import
+Les textes mis en forme, titres, paragraphes vides, listes, cases à cocher, toggles, citations, callouts, code, équations, tableaux et colonnes sont convertis selon les possibilités du client Anytwo. Les images, fichiers, lecteurs audio et vidéos YouTube emploient les formats natifs compatibles. Les mentions deviennent des liens inline et les liens internes sont remappés vers les nouveaux identifiants.
 
-- Parcourt l'espace source, sa collection ou les types/objets choisis. Avec « Importer également les éléments liés », ajoute les objets référencés retrouvés dans cet espace et enregistre la **raison de leur inclusion**.
-- Recrée les collections Anytype choisies ; une collection supplémentaire par **type** est créée lorsqu'il y a des propriétés à préserver (y compris des colonnes de type sans valeur). Les correspondances vers des collections Anytwo existantes sont respectées selon les choix de l'interface.
-- Crée les pages **avant** de reconstruire les liens afin de réécrire les références vers leurs nouveaux identifiants Anytwo.
-- Tente de transférer propriétés (`texte`, `numérique`, `booléen`, `dates`, `select`, `multi-select`, `relations`) et options. Les champs sans correspondance certaine sont convertis en texte **avec un avertissement**.
-- Transcrit les blocs AnyBlock v2 en Markdown Anytwo : titres, paragraphes, emphases, listes, cases cochées, citations, callouts simplifiés, code, liens, fichiers et médias. Colonnes, tableaux enrichis, dimensions d’images et vidéos YouTube : tentative de restitution par HTML intégré au Markdown, avec repli en contenu simplifié si rejeté (le rendu Anytwo doit être contrôlé). Les blocs inconnus incluent leur JSON d'origine pour éviter une disparition silencieuse.
-- Transfère des fichiers binaires par les API si l'option est cochée ; une image de couverture peut être ajoutée au début de la page, mais **pas** reproduite comme bannière d'origine. Les icônes emoji sont tentées comme métadonnée de l’objet (champ en cours de validation) : elles ne sont plus ajoutées au corps de page.
-- Insère un **avertissement dans la page Anytwo** en présence de blocs/contenus majeurs non transposables : collection ou vue intégrée, bloc inconnu, fichier absent, lien non reconstruit, etc. Les pertes de présentation purement cosmétiques restent dans le rapport.
-- Affiche un bilan avec chaque objet, les motifs (sélection manuelle, appartenance à une collection, objet lié), les adaptations et les erreurs ; regroupe les catégories d'incompatibilités. Permet d'**exporter un JSON**.
-- Enregistre les bilans dans `%APPDATA%\anytype-anytwo-importer\reports\` (Windows), même en cas d'interruption lorsque l'opération a pu être suivie.
+Les propriétés texte, numériques, booléennes, dates, selects et relations compatibles sont transférées dans les collections cibles. Les options et leurs couleurs sont lues dans le vocabulaire source. Une date contenant une heure reste en datetime, même si les métadonnées source annoncent une date simple. Les colonnes sans valeur déclarées par le type sont également créées, sauf les propriétés fichiers/images non portables.
 
-## Changements v0.6
+Les propriétés fichiers/images deviennent du contenu en début de page, sous leur libellé, lorsque la récupération des fichiers est activée. Elles ne créent pas de colonnes texte de remplacement. Les noms des fichiers sont recherchés dans leurs métadonnées. Un même fichier est réutilisé entre pages, et un fichier existant n’est réutilisé qu’après vérification du nom normalisé, de la taille et du contenu.
 
-- Le bouton « API » sert d’accès unique aux paramètres : engrenage supprimé.
-- Les objets identifiés comme **chats ou discussions** sont exclus de la sélection et de la migration (y compris via les liens). Les messages/discussions ne sont pas importés.
-- Les champs Anytype internes tels que `resolved_layout`, `Origin`, `created_in_context` et `created_in_context_ref` sont filtrés avant la création des colonnes et l’écriture des valeurs. Ne pas rejeter arbitrairement toutes les propriétés de format inconnu : elles peuvent être personnalisées.
-- Les bookmarks complets sont transformés en **lien cliquable portant leur titre** ; leurs métadonnées enrichies ne sont plus reproduites. Les blocs bookmark dans les pages suivent la même règle.
-- Les colonnes, tableaux et largeurs d’images disposent d’un chemin HTML structuré (moins destructeur que l’aplatissement précédent) ; les couleurs des cellules ne sont pas reprises. Ce chemin n’est **pas encore une garantie de création de blocs natifs Anytwo**.
-- Les vidéos YouTube valides sont représentées par une intégration HTML plutôt qu’un lien simple, sous réserve du rendu Anytwo. L’emoji source est envoyé à la création de l’objet et jamais inséré artificiellement dans le contenu.
-- Si le Markdown enrichi est refusé, un repli plus simple est tenté ; le bilan signale la perte de présentation. L’import reste non destructif côté Anytype.
+Les templates des types importés et ceux référencés par les vues de collection deviennent des templates natifs Anytwo. Leur contenu, leur icône et leurs propriétés sont repris. Le défaut de la vue active prend priorité sur celui du type. Les défauts concurrents et les différences avec un défaut cible existant sont signalés.
 
-## Changements v0.7 — après le premier essai réel
+Les sommaires de premier niveau utilisent le bloc dynamique natif lorsque la version Anytwo le permet. Les sommaires imbriqués utilisent des liens statiques vers les identifiants réels des titres.
 
-- **Actualisation des listes** : bouton « ↻ Mettre à jour » près de l'espace source. Recharge les espaces Anytype/Anytwo, les objets et types Anytype et les collections de l'espace de destination. La sélection et les destinations sont conservées lorsque les objets existent toujours.
-- **Après chaque import** : recharge automatique des listes. L'import renseigne dans le bilan l'ID de l'espace et des collections créés afin que la configuration cible réutilise les **bons identifiants**, et pas seulement des noms identiques.
-- **Tableaux dans des colonnes** : correction d'une omission du parcours imbriqué ; la structure HTML de colonne contient désormais les vrais `<table>` des cellules imbriquées, avec leurs données. Le rendu final dépend encore du parser/éditeur Anytwo, à vérifier sur une page de test.
-- **Bookmarks intégrés** : recherche du libellé dans le bloc, puis dans le nom de l'objet bookmark référencé, avec lecture de ses métadonnées par l'API locale Anytype en dernier recours. Le lien porte ce titre lorsque la source le fournit.
-- **YouTube** : le Markdown Anytwo rendait le code `<iframe>` comme texte. Le convertisseur le sépare maintenant du Markdown et tente un **bloc natif `html`** de l'éditeur au bon emplacement, avant de poursuivre la page. Si l'API refuse ce bloc, il insère un lien cliquable. Le client peut néanmoins afficher le HTML différemment : **la lecture vidéo intégrée n'est pas encore validée sur le client réel**.
-- Aucun changement aux modes d'import : l'import simple crée de nouvelles copies. Tester n'écrit rien dans Anytwo.
+## Vues et widgets
 
-## Changements v0.8 — reconnaissance des fichiers CSV
+Les dispositions table, liste, galerie et kanban compatibles sont reprises. Les filtres ET/OU imbriqués, comparaisons simples, sélections, conditions de valeurs vides et comparaisons texte compatibles sont remappés avec les propriétés, options et références. Les tris, regroupements, propriétés visibles et ordre des colonnes sont appliqués lorsque leur configuration est transposable. La vue active incompatible est signalée.
 
-- **CSV** : l'import transmet désormais explicitement `Content-Type: text/csv` pour un fichier dont le nom finit par `.csv`, même si Anytype annonçait `application/octet-stream`, `text/plain` ou `application/vnd.ms-excel`.
-- **Nom original conservé** : les pièces jointes issues d'une propriété Anytype pouvaient être transmises sous un nom artificiel (par exemple `Documents-<id>`), ce qui empêchait Anytwo d'identifier leur extension. L'importeur tente maintenant de retrouver le vrai nom dans l'inventaire ou dans les métadonnées de l'objet fichier Anytype.
-- **Autres formats conservés** : pour `.bat`, `.xls`, `.ics`, `.log` et les autres extensions, un MIME spécifique fourni par Anytype est conservé. Le script ne complète que les types génériques lorsqu'il dispose d'une extension fiable.
-- **Vérification CSV après upload** : lorsque l'API de la version Anytwo installée le permet, le script relit la fiche du fichier CSV importé (`GET /v1/spaces/:spaceId/files/:fileId`). Si le MIME enregistré diffère de `text/csv`, le problème apparaît dans le bilan de l'objet. Si cette route est absente, le transfert n'est pas marqué en erreur.
-- **Limite** : ces corrections concernent les nouveaux imports. Elles ne modifient pas les fichiers précédemment importés. Le rendu et la prévisualisation dans le client Anytwo doivent encore être confirmés par un essai réel. L'import simple crée de nouveaux objets, il ne faut pas relancer un import vers le même espace sans prendre en compte les doublons.
+Une vue inline doit reposer sur une seule collection Anytwo. Plusieurs vues peuvent réutiliser cette collection avec leurs propres configurations. Les versions Anytwo compatibles acceptent les tables et kanbans inline ; les anciens clients peuvent nécessiter une adaptation en liste. Une mise en page avancée, notamment une vue dans un callout ou une colonne, peut perdre son emplacement ou sa présentation.
 
-## Limites et précautions
+Les widgets Anytype fondés sur une page ou une collection importée sont ajoutés à l’Overview partagé, dans l’ordre source. Le mode Link reste Link et les autres modes utilisent Views. Les sections et widgets système sont ignorés. Les doublons de cible entre widgets partagés et personnels sont évités.
 
-- **Aucune synchronisation, reprise automatique, résolution de doublons ou annulation.** Import simple = nouvelle copie à chaque lancement.
-- Les imports sont limités à **500 objets** et à **100 Mio par fichier** pour prévenir les erreurs de périmètre et les transferts excessifs (limites modifiables dans le code). La préparation lit les documents avant la première création mais ne peut pas anticiper toutes les erreurs d'écriture.
-- Les collections et types Anytype ne sont pas équivalents à ceux d'Anytwo : les types sont **convertis en collections** lorsqu'il le faut, les paramètres de vues dynamiques et filtres restent non reproduits.
-- Il existe des écarts importants pour les couleurs de fonds, templates, propriétés globales/locales, table des matières, bookmarks enrichis, queries/vues, filtres avancés, collections intégrées, propriétés intégrées dans les pages et discussions. La liste affichée par **Voir plus** n'est pas exhaustive.
-- Les blocs sont transposés au mieux, mais **la mise en page exacte et le rendu des médias ne sont pas garantis** (colonnes / tableaux / médias avec HTML à vérifier, toggles non repliables). Certains attributs des relations et les métadonnées système ne sont pas récupérables.
-- Les fichiers originaux doivent être disponibles par l'API locale Anytype ; la présence d'une référence ne garantit pas leur téléchargement.
-- Un objet source illisible, une propriété refusée ou une API interrompue peut créer un **import partiel**. Consultez le bilan **avant tout nouvel import**, pour éviter des doublons.
-- Le mode d'import ne modifie pas la source, mais les clés d'API Anytype accordent l'accès aux espaces approuvés : conservez les fichiers de configuration de votre compte utilisateur.
+## Chats, limites et bilan
 
-## Tests effectués
+Les chats et discussions sont exclus de l’import ordinaire. L’option d’archive des chats crée une page par chat exposé par l’API de l’espace, avec auteurs, dates, réponses, réactions et pièces jointes selon l’option fichiers. Les discussions d’objets absentes de cette liste ne sont pas découvertes séparément.
 
-- `python -m unittest discover -s tests -v` : **45 tests** (dont un test d'intégration HTTP contre **deux serveurs locaux simulés** avec écriture des blocs, propriétés et transfert binaire ; neuf tests spécifiques aux métadonnées fichiers et CSV).
-- `node --check static/app.js`, `node --check static/i18n.js` et `node --check static/pair.js` : validation syntaxique JavaScript.
-- Test automatisé Chromium de l'interface : vérification du dialogue, des sélections, des destinations et du mode simulation.
+Certaines fonctionnalités sont absentes d’Anytwo ou ont un modèle différent. Cela concerne les couleurs de texte, de fond, de blocs, de cellules et de callouts, les types, la portée locale/globale des propriétés, les propriétés fichiers/images, les bookmarks enrichis, les discussions, les mini-apps et les dispositions Graph/Calendar. L’alignement et certaines compositions de blocs ne sont pas conservés. Les dates relatives, tris personnalisés, restrictions de relation hors périmètre et autres conditions non transposables sont signalés dans le bilan.
 
-**Ce qui reste à valider avec vos deux applications** : rendu HTML des colonnes et tableaux enrichis (sans garantie de conversion en blocs natifs), emoji d’icône (`iconEmoji` est tenté mais non confirmé par la documentation), rendu iframe YouTube via bloc natif HTML, dimensions d’images, et  schémas réels des colonnes, chargement des types et collections, création d'un espace et d'une collection, rendu des images via les URI `any://f`, rendu des liens `any://o`, et migration des collections de grande taille. Certains endpoints peuvent avoir évolué depuis la documentation.
+L’import simple crée de nouvelles copies à chaque lancement. Il ne fournit pas de synchronisation ni d’annulation globale. La limite actuelle est de 500 objets, templates inclus, et de 100 Mio par fichier. La simulation examine le périmètre sans écrire dans Anytwo.
 
-## Sources
+Le bilan JSON contient les correspondances source/cible, les vues, les paramètres archivés, les transferts de fichiers, les adaptations et les erreurs. Il peut contenir le contenu source. Il est enregistré dans le profil actif.
 
-- API Anytype v2 : https://developers.anytype.io/docs/reference/v2/anytype-api/
-- AnyBlock JSON 2.0 : https://github.com/anyproto/any-block/blob/main/format/v2/SPEC.md
-- API Anytwo / any v1 : https://docs.any.org/reference/http-api.html
-- Markdown Anytwo : https://docs.any.org/database/markdown-import-export.html
-
-## Organisation
-
-- `server.py` : serveur web local et configuration, simulation, import, sauvegarde des bilans.
-- `api_clients.py` : clients des API, détection du port, lecture/écriture HTTP, transferts binaires.
-- `logic.py` : inventaire, groupes et simulation.
-- `migration.py` : découverte des références, correspondances, conversion et rapport.
-- `static/` : interface web sans framework JavaScript.
-- `tests/` : tests du traitement et des appels HTTP simulés.
-
-## Changements v0.9 — identité et langues
-
-- Projet renommé **Any2Any**. Les sources et destinations restent Anytype et Anytwo.
-- Documentation publique en français et en anglais ; avertissement renforcé sur le caractère expérimental des versions alpha.
-- Sélecteur de langue FR / EN / DE pour les libellés de l’interface et la fenêtre d’appairage, avec mémorisation locale. Les données des utilisateurs et les messages techniques des API ne sont pas traduits.
-- Aucune modification apportée au moteur d’import depuis la v0.8.
-
-**Contrôle de traduction v0.9 :** les affichages FR / EN / DE des deux pages ont été testés avec Chromium hors connexion ; les restrictions réseau de l’environnement ont empêché un scénario navigateur complet contre le serveur local.
-
-## Changements v0.9.1 — aperçu sans API
-
-- L’écran de connexion devient **fermable par une croix dès que les contrôles sont terminés**, même lorsque Anytype ou Anytwo est indisponible. Il reste fermé jusqu’à ce que l’utilisateur clique sur l’indicateur d’état des API.
-- En cas d’échec, l’indicateur en haut à droite est **rouge avec un symbole d’avertissement** et la page affiche un bandeau expliquant le mode de consultation. Le sélecteur FR/EN/DE et les informations de compatibilité restent disponibles.
-- Aucun test de données ni import ne peut être déclenché lorsque les API ne sont pas toutes les deux accessibles ; les contrôles de l’espace de travail deviennent inactifs.
-- Lorsque les API redeviennent accessibles via « Enregistrer et vérifier », l’interface charge les données et réactive les fonctions de migration.
-- Le moteur de migration n’est pas modifié. L’identifiant HTTP du client a été actualisé de `Anytype-Anytwo-Importer/0.8` à `Any2Any/0.9.1`.
-
-
-## Fidélité de conversion après la première publication
-
-La passe sur les vues, filtres, propriétés, colonnes et médias est décrite dans [Fidélité des imports](IMPORT-FIDELITE.fr.md). Elle précise les conversions effectives, les paramètres seulement archivés et les rendus restant à vérifier. Ces modifications ne font pas partie de la première release publiée.
+Les [détails de fidélité](IMPORT-FIDELITE.fr.md) précisent les conversions et les limites. L’[historique bilingue](../CHANGELOG.md) décrit les changements publiés et en préparation.

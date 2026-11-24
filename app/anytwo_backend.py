@@ -29,7 +29,33 @@ __all__=[
     'create_object','add_membership','list_columns','add_column','set_column_value',
     'delete_column','set_markdown','append_markdown','attach_file','get_file_info','create_editor_block',
     'local_get','local_binary','unwrap_list','_segment','set_space_icon',
+    'create_template','set_default_template',
 ]
+
+
+def create_template(api, sid, name, collections, emoji=None):
+    """The native client identifies templates by their reserved collection."""
+    properties = {'any': {'name': name}, 'template': {'title': name, 'version': 1}}
+    if emoji:
+        properties['any']['icon'] = emoji
+    result = target_write(api, f'/spaces/{_segment(sid)}/objects', {
+        'type': 'page', 'collections': list(dict.fromkeys([*collections, 'template'])),
+        'initialProperties': properties})
+    if not result.get('objectId'):
+        raise APIError('Création du template : identifiant cible absent.')
+    return str(result['objectId'])
+
+
+def set_default_template(api, sid, cid, template_id, *, preserve_existing=False):
+    path = f'/spaces/{_segment(sid)}/collections/{_segment(cid)}'
+    collection = local_get(api.port, '/v1'+path)
+    current = (collection.get('meta') or {}).get('defaultTemplate')
+    if preserve_existing and current and current != template_id:
+        raise APIError('La collection cible conserve son template par défaut existant.')
+    target_write(api, path, {'meta': {'defaultTemplate': template_id}}, method='PATCH')
+    saved = local_get(api.port, '/v1'+path)
+    if (saved.get('meta') or {}).get('defaultTemplate') != template_id:
+        raise APIError('Le template par défaut n’a pas pu être confirmé.')
 
 
 def set_space_icon(api,sid,name,content,mime):

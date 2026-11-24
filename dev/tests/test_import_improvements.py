@@ -57,7 +57,7 @@ class FidelityTests(unittest.TestCase):
     def test_unknown_filter_refuses_entire_view(self):
         for bad in ({'property':'Unknown','condition':'equal','value':1},
                     {'property':'Date','condition':'equal','date_preset':'today'},
-                    {'property':'Status','condition':'empty'},
+                    {'property':'Status','condition':'unknown'},
                     {'property':'Related','condition':'in','value':['missing']}):
             with self.subTest(bad=bad),self.assertRaises(UnsupportedView):
                 self.converter.convert({'filters':[bad]}, {'id':{'$in':['new-a']}})

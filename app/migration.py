@@ -19,6 +19,7 @@ from view_conversion import (choice_options, enrich_descriptor, ViewConverter,
                              create_saved_views, modify_records, UnsupportedView)
 from source_views import SourceViews, source_value, MISSING, is_recent_widget_document, is_recent_widget_block, RECENT_WIDGET_TARGETS
 from inline_views import instance_id, inline_markdown, inline_records, property_names
+from anytype_templates import Templates, is_template
 import html
 import json
 import mimetypes
@@ -34,7 +35,7 @@ from anytwo_backend import (
                          delete_column, target_write, local_get, _segment)
 from chat_archives import histories as chat_histories, markdown as chat_markdown
 from page_text import page_text, notice, activate, language
-from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation, INLINE_MENTION_RE
+from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation
 
 MAX_OBJECTS = 500
 SYSTEM = {x.replace('-', '_').replace(' ', '_').casefold() for x in INTRINSIC_PROPERTIES}
@@ -46,6 +47,7 @@ SYSTEM |= {'id', 'type', 'object_type', 'layout', 'icon', 'cover', 'description'
            'resolved_layout', 'origin', 'created_in_context', 'created_in_context_ref',
            'layout_align', 'is_archived', 'sync_status', 'import_type',
            'image_kind', 'participant_permissions', 'participant_status'}
+SYSTEM |= {'source_object', 'sourceobject'}
 TEXT = {'paragraph':'', 'heading_1':'# ', 'heading_2':'## ', 'heading_3':'### ',
         'quote':'> ', 'bulleted_list_item':'- ', 'numbered_list_item':'1. '}
 KNOWN_UNSUPPORTED = {
@@ -385,25 +387,27 @@ def reference_link(ref, mapping, target_sid, names):
 
 
 def replace_inline_links(text, mapping, sid, names, issues):
+    def mention(match):
+        ref = html.unescape(match.group(2))
+        label = html.unescape(match.group(3)) or names.get(ref, 'Objet lié')
+        uri = reference_link(ref, mapping, sid, names)
+        if not uri:
+            issues.add('Lien vers un objet non importé')
+            return label
+        return titled_link(label, uri)
+    text = re.sub(r'(?<!\\)<mention\s+object_id=([\"\'])(.*?)\1\s*>(.*?)</mention>',
+                  mention, str(text), flags=re.DOTALL)
     # AnyBlock inline links use Markdown with anytype://object?objectId=<id>.
     def old_url(m):
-        oid = unquote(m.group(2))
+        params = parse_qs(m.group(2).replace(r'\&', '&'))
+        oid = (params.get('objectId') or [''])[0]
         new = reference_link(oid, mapping, sid, names)
         if not new:
             issues.add('Lien vers un objet non importé')
             return m.group(0)
-        return m.group(1) + new
-    text = re.sub(r'(\]\()anytype://object\?objectId=([^)& ]+)', old_url, str(text))
-    # Anytype serialises inline @ mentions as tags Anytwo would display raw.
-    def mention(match):
-        oid = unquote((match.group(1) or match.group(2) or '').strip())
-        label = html.unescape(match.group(3)).strip() or str(names.get(oid) or oid)
-        uri = reference_link(oid, mapping, sid, names)
-        if not uri:
-            issues.add('Mention vers un objet non importé')
-            return label
-        return titled_link(label, uri)
-    return INLINE_MENTION_RE.sub(mention, text)
+        return m.group(1) + new + ')'
+    text = re.sub(r'(\]\()anytype://object\?([^\s)]+)\)', old_url, str(text))
+    return text
 
 
 def _nested_fragment(blocks, mapping=None, sid=None, names=None, issues=None,
@@ -713,7 +717,7 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
         elif typ == 'any2any_property':
             lines.append(block['markdown'])
         elif typ == 'any2any_toc':
-            lines.append(block['marker'])
+            lines.append(block.get('markdown') or block['marker'])
         elif typ == 'any2any_inline_view':
             lines.append(block['markdown'])
             if block.get('failed'):lines.append(notice('notice.secondary_views'))
@@ -850,6 +854,20 @@ def column_shape(fmt, value, issues):
     return 'string', {'type':'longtext'}, json.dumps(value,ensure_ascii=False) if not isinstance(value,str) else value
 
 
+def date_has_time(value):
+    if isinstance(value, dict):
+        value = value.get('$date')
+    if not isinstance(value, str) or 'T' not in value:
+        return False
+    try:
+        instant = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        if instant.tzinfo:
+            instant = instant.astimezone(timezone.utc)
+        return bool(instant.hour or instant.minute or instant.second or instant.microsecond)
+    except ValueError:
+        return True
+
+
 
 def declared_properties(type_document, vocabulary):
     """Read actual Anytype v2 type schema, including columns without values."""
@@ -884,7 +902,7 @@ def declared_column_shape(spec):
         return 'string', {'type':fmt}
     if fmt == 'number': return 'number', {'type':'number'}
     if fmt == 'checkbox': return 'boolean', {'type':'checkbox'}
-    if fmt == 'date': return 'datetime', {'type':'date'}
+    if fmt == 'date': return 'datetime', {'type':'datetime' if spec.get('_requires_datetime') else 'date'}
     if fmt == 'objects': return 'array', {'type':'relation','config':{'multiple':True}}
     if fmt in ('select','multi_select'):
         opts=choice_options(spec.get('options') or [], slug)
@@ -906,6 +924,8 @@ class Engine:
         self.memberships={}
         self.property_bindings={}
         self.written_properties={}
+        self.property_previews={}
+        self.type_names={str(t.get('key')):t.get('name') for t in inventory['types']}
         self.source_views=SourceViews(source,self.sid,inventory)
         self.collection_documents={}
         self.view_reports=[]
@@ -913,6 +933,7 @@ class Engine:
         self.widget_warnings = set()
         self.native_markup=True
         self.language=language(plan.get('language'))
+        self.templates = Templates(self)
         self.type_defs={}; self.collection_reports=[]; self.results={}; self.report={'status':'running','objects':[],'errors':[], 'warnings':{},'created':{}}
         self.names={obj['id']:obj['name'] for obj in inventory['all']}
 
@@ -921,9 +942,10 @@ class Engine:
         issues=Counter(issue for r in self.results.values() for issue in r['issues'])
         issues.update(issue for cr in self.collection_reports for issue in cr['issues'])
         issues.update(self.widget_warnings)
+        issues.update(self.templates.warnings)
         if error:
             self.report['errors'].append(str(error))
-        self.report['status']=status or ('done' if not counters['error'] and not counters['partial'] and not self.widget_warnings else 'partial')
+        self.report['status']=status or ('done' if not counters['error'] and not counters['partial'] and not self.widget_warnings and not self.templates.warnings else 'partial')
         self.report['objects']=[{'name':r['name'],'source_id':oid,'target_id':r['target_id'],
                                  'status':r['status'],'reason':r['reason'],
                                  'issues':sorted(r['issues']),'errors':r['errors']}
@@ -991,7 +1013,7 @@ class Engine:
             if (target and not is_conversation(item) and not is_bookmark(item, doc)
                     and item.get('type') not in (FILE_TYPES | {'set', 'query', 'object_type', 'template'})
                     and item.get('layout') not in FILE_TYPES
-                    and 'query_source' not in doc and doc.get('kind') not in ('object_type', 'template')):
+                    and 'query_source' not in doc and doc.get('kind') != 'object_type' and not is_template(doc)):
                 pages[source_id] = target
         if not pages and not collections:
             return []
@@ -1042,6 +1064,28 @@ class Engine:
             self.report['created'].setdefault('collection_details',[]).append({'id':cid,'name':name})
         self.col_cache[key]=cid
         return cid
+
+    def register_source_collections(self, docs):
+        """Resolve structural collection references before creating page objects."""
+        for source_id, doc in list(docs.items()):
+            candidates = [(source_id, doc)]
+            for block in doc.get('blocks') or []:
+                if not isinstance(block, dict) or block.get('type') != 'dataview' or not block.get('object_id'):
+                    continue
+                try:
+                    host, _, _ = self.source_views.resolve(doc, block)
+                    candidates.append((block['object_id'], host))
+                except (APIError, UnsupportedView, ValueError, KeyError, TypeError):
+                    continue
+            for ref, host in candidates:
+                if host.get('type') != 'collection' and host.get('type_internal_key') != 'collection':
+                    continue
+                self.collection_documents.setdefault(ref, host)
+                name = (host.get('properties') or {}).get('name') or self.names.get(ref) or 'Collection Anytype'
+                self.mapping[ref] = self.col('collection:'+ref, name)
+                self.names[ref] = name
+                if not any(row.get('source_id') == ref for row in self.collection_reports):
+                    self.collection_reports.append({'source_id':ref, 'name':name, 'issues':[]})
 
     def type_column(self, key, name, *, force=False):
         target = self.plan['target']
@@ -1138,6 +1182,10 @@ class Engine:
         for name in names:
             if name.casefold()=='name':continue
             if name!='type' and internal_record_property(name):continue
+            declared=next((v for v in block.get('properties',[]) if str(v.get('property','')).casefold()==name.casefold()),{})
+            source_spec=converter.metadata.get(name.casefold()) or declared
+            if source_spec.get('format') == 'files':
+                continue
             candidates=[] if name=='type' else converter.bindings.get(name.casefold(),[])
             if included:
                 owners={owner for oid in included for owner in self.memberships.get(oid,set())}
@@ -1191,6 +1239,9 @@ class Engine:
             for oid in included:
                 doc=self.source_views.document(oid)
                 value=source_value(doc,name,self.source_views.items.get(oid))
+                if name == 'type' and value is not MISSING:
+                    value = self.type_names.get(str(value)) or next(
+                        (t.get('name') for t in self.inv['types'] if str(value) in (str(t.get('id')), str(t.get('key')))), str(value))
                 if value is not MISSING:found.append((oid,value))
             declared=next((v for v in block.get('properties',[]) if str(v.get('property','')).casefold()==name.casefold()),{})
             spec=deepcopy(converter.metadata.get(name.casefold()) or declared)
@@ -1209,7 +1260,7 @@ class Engine:
                     spec['format']='text';fmt='text';references=[]
             spec.update(format=fmt,name=spec.get('name') or name)
             kind,form=declared_column_shape(spec)
-            if fmt=='date' and found and any('T00:00:00' not in str(column_shape(fmt,v,issues)[2].get('$date','')) for _,v in found):
+            if fmt=='date' and found and any(date_has_time(v) for _,v in found):
                 form['type']='datetime'
             pid,actual=self.property(scope,spec['name'],fmt,found[0][1] if found else None,issues,converter.metadata,override=(kind,form))
             bindings[name.casefold()]=[(scope+'.'+pid,spec,actual)]
@@ -1275,14 +1326,14 @@ class Engine:
                 reference=block.get('object_id')
                 block['views']=views
                 table_key=instance_id(target_id,str(block.get('id') or block_index))
-                if target_id in self.mapping.values():
+                if target_id != self.col_cache.get('collection:'+source_id):
                     scope,scoped_converter=self.inline_scope(source_id,block,source_ids,converter,issues)
                     records,failed=inline_records(scoped_converter,block,scope,table_key,issues,
                         native_layouts=getattr(self, 'destination_version', ()) >= (0, 3, 6))
                     view_id=self.view_hosts.get(target_id)
                     if view_id is None:
                         root=target_write(self.target,f'/spaces/{_segment(self.dest_sid)}/objects',{
-                            'type':'dataview','initialProperties':{'any':{'name':'Vues Anytype'},'dataview':{'host':target_id}}})
+                            'type':'dataview','initialProperties':{'dataview':{'host':target_id}}})
                         view_id=root.get('objectId')
                     if not view_id:raise APIError('Objet de vues créé sans identifiant')
                     modify_records(self.target,self.dest_sid,view_id,'dataviews',[
@@ -1417,6 +1468,9 @@ class Engine:
         roots, reasons, selected_cols = select_scope(inv,plan)
         entries, docs, read_errors = discover_documents(self.source,self.sid,inv,roots,reasons,bool(plan.get('follow_links')) and plan['selection']['kind']!='space',self.source_views)
         if not docs and entries: raise APIError('Aucun document source lisible. Aucune écriture effectuée.')
+        self.templates.discover(entries, docs, reasons, selected_cols)
+        if len(entries) > MAX_OBJECTS:
+            raise APIError(f'Plus de {MAX_OBJECTS} objets, templates inclus. Aucune écriture effectuée.')
         yield self.emit('message',message=f'Lecture de {len(docs)} objets source · {len(read_errors)} avertissement(s).')
         try: metadata = anytype_property_definitions(self.source,self.sid)
         except APIError as exc:
@@ -1430,7 +1484,16 @@ class Engine:
             try:
                 detail = self.source.type_detail(self.sid,key) if hasattr(self.source,'type_detail') else {}
                 if not isinstance(detail,dict): detail = {}
+                label=(detail.get('properties') or {}).get('name')
+                if label:
+                    self.type_names[key]=label
+                    self.type_names[str(typ.get('id'))]=label
                 defs = declared_properties(detail,metadata)
+                for spec in defs:
+                    if spec.get('format') == 'date':
+                        spec['_requires_datetime'] = any(
+                            date_has_time(source_value(doc, spec['key'])) or date_has_time(source_value(doc, spec['name']))
+                            for oid, doc in docs.items() if entries[oid].get('type') == key)
                 if not defs and detail.get('property_definitions') is None:
                     yield self.emit('message', message=f'! Schéma du type « {typ["name"]} » incomplet : les colonnes sans valeur peuvent manquer.')
             except APIError as exc:
@@ -1454,21 +1517,22 @@ class Engine:
                     self.view_reports.append({'source_id':col['id'],'source':source_col,'status':'unsupported','error':'Filtres hors vue structurée'})
             except (APIError,TypeError,ValueError,KeyError):
                 col_issues.add('Configuration avancée de la collection source non vérifiable')
-            self.collection_reports.append({'name':col['name'], 'issues':sorted(col_issues)})
+            self.collection_reports.append({'source_id':col['id'], 'name':col['name'], 'issues':sorted(col_issues)})
             cid = self.col('collection:'+col['id'],
                            target.get('collection_name') or col['name'] if len(selected_cols)==1 else col['name'],
                            target.get('collection_id') if len(selected_cols)==1 and target.get('collection_mode')=='existing' else None)
             yield self.emit('message',message=f'Collection « {col["name"]} » → {cid}')
+        self.register_source_collections(docs)
         types_by_obj={obj['id']:typ for typ in inv['types'] for obj in typ['items']}
         member_cols={oid:[] for oid in docs}
-        for col in selected_cols:
-            cid=self.col_cache.get('collection:'+col['id'])
-            source_ids=set(self.collection_documents.get(col['id'],{}).get('collection_items',[]))
-            source_ids.update(item['id'] for item in inv['members'].get(col['id'],[]))
+        for source_id, source_doc in self.collection_documents.items():
+            cid=self.col_cache.get('collection:'+source_id)
+            source_ids=set(source_doc.get('collection_items',[]))
+            source_ids.update(item['id'] for item in inv['members'].get(source_id,[]))
             for member_id in source_ids:
                 if member_id in member_cols:member_cols[member_id].append(cid)
         # First pass: all pages and their collection memberships (no relations yet).
-        for oid, obj in entries.items():
+        for oid, obj in sorted(entries.items(), key=lambda item:item[0] in self.templates.rows):
             self.results[oid]={'name':obj['name'],'source_id':oid,'target_id':None,
                                'reason':reasons.get(oid,['Lié indirectement à la sélection']),
                                'issues':set(), 'errors':[], 'status':'pending'}
@@ -1478,9 +1542,15 @@ class Engine:
                 self.results[oid]['status']='error'
                 self.results[oid]['errors'].append('Objet source non lisible')
                 continue
-            props = {} if is_bookmark(obj,docs[oid]) else custom_properties(docs[oid],metadata); typ = types_by_obj.get(oid)
+            if oid in self.collection_documents:
+                self.results[oid]['target_id']=self.col_cache['collection:'+oid]
+                self.results[oid]['status']='created'
+                continue
+            props = {} if is_bookmark(obj,docs[oid]) else custom_properties(docs[oid],metadata)
+            template = oid in self.templates.rows
+            typ = None if template else types_by_obj.get(oid)
             typkey=(typ or {}).get('key') or obj.get('type') or 'page'
-            cols=list(member_cols.get(oid,[]))
+            cols=self.templates.scopes(oid, entries) if template else list(member_cols.get(oid,[]))
             # Existing source collection memberships own the properties. A type
             # collection is only a fallback for objects outside source collections.
             type_col=None
@@ -1500,7 +1570,10 @@ class Engine:
                 icon = docs[oid].get('icon') or {}
                 emoji = str(icon.get('emoji') or '') if isinstance(icon,dict) and icon.get('format')=='emoji' else (icon if isinstance(icon,str) else '')
                 icon_warnings=[]
-                if emoji:
+                if template:
+                    from anytwo_backend import create_template
+                    self.mapping[oid]=create_template(self.target,self.dest_sid,obj['name'],cols,emoji=emoji or None)
+                elif emoji:
                     self.mapping[oid]=create_object(self.target,self.dest_sid,obj['name'],cols,
                                                     emoji=emoji,icon_warnings=icon_warnings)
                     self.results[oid]['issues'].update(icon_warnings)
@@ -1533,6 +1606,8 @@ class Engine:
                 defined_owners.add(cid)
                 issues=self.results[oid]['issues']
                 for spec in defs:
+                    if spec['format'] == 'files':
+                        continue
                     try:
                         pid,form=self.property(cid,spec['name'],spec['format'],None,issues,metadata,
                                       override=(declared_column_shape(spec)[0], enrich_descriptor(spec, declared_column_shape(spec)[1], issues)))
@@ -1548,6 +1623,8 @@ class Engine:
         for oid,doc in docs.items():
             r = self.results[oid]
             if not r['target_id']: continue
+            if oid in self.collection_documents:
+                continue
             props={} if is_bookmark(entries[oid],doc) else custom_properties(doc,metadata)
             cols=member_cols.get(oid,[])
             for name,value in props.items():
@@ -1559,6 +1636,26 @@ class Engine:
                 meta={**meta, **declared}
                 fmt=str(meta.get('format') or fmt).casefold()
                 label=str(meta.get('name') or name)
+                if fmt == 'files':
+                    values=value if isinstance(value,list) else [value]
+                    preview=[]
+                    for fid in values:
+                        if not isinstance(fid,str):
+                            r['errors'].append(f'Fichier de propriété « {name} » : ID invalide')
+                            continue
+                        if not plan.get('files'):
+                            r['issues'].add('Fichiers de propriété non repris (option désactivée)')
+                            continue
+                        try:
+                            uri=self.add_file(oid,fid,label+'-'+fid[:10],None)
+                            preview.append(image_markdown(uri,getattr(uri,'name',label))
+                                if getattr(uri,'mime','').startswith('image/') else file_html(uri,getattr(uri,'name',label)))
+                        except APIError as exc:
+                            r['errors'].append(f'Fichier de propriété « {name} » : {exc}')
+                    if preview:
+                        self.property_previews.setdefault(oid,[]).append('**'+label+'**\n\n'+'\n\n'.join(preview))
+                        r['issues'].add('Propriété fichier « '+label+' » : contenu placé en début de page')
+                    continue
                 if not cols:
                     r['errors'].append(f'Propriété « {name} » sans collection de destination')
                     continue
@@ -1574,21 +1671,6 @@ class Engine:
                     fmt='text'
                 primary=self.property_owner.get(oid) or cols[0]
                 try:
-                    if fmt=='files':
-                        values=value if isinstance(value,list) else [value]
-                        urls=[]
-                        for fid in values:
-                            if not isinstance(fid,str):
-                                r['errors'].append(f'Fichier de propriété « {name} » : ID invalide')
-                                continue
-                            if not plan.get('files'):
-                                r['issues'].add('Fichiers de propriété non repris (option désactivée)')
-                                continue
-                            try:
-                                urls.append(self.add_file(oid, fid, str(name)+'-'+fid[:10],None))
-                            except APIError as exc:
-                                r['errors'].append(f'Fichier de propriété « {name} » : {exc}')
-                        fmt='text';value='\n'.join(urls)
                     if fmt=='objects':
                         values=value if isinstance(value,list) else [value]
                         kept=[v for v in values if isinstance(v,str) and v in self.mapping]
@@ -1610,7 +1692,7 @@ class Engine:
                     if fmt in ('select','multi_select') and meta.get('options') is not None:
                         form=declared_column_shape({**meta,'format':fmt})[1]
                     form=enrich_descriptor({**meta,'format':fmt,'name':label}, form, r['issues'])
-                    if fmt=='date' and form.get('type')=='date' and isinstance(converted,dict) and 'T00:00:00' not in converted.get('$date',''):
+                    if fmt=='date' and form.get('type')=='date' and date_has_time(converted):
                         form['type']='datetime'
                     pid,actual_form=self.property(primary,label,fmt,value,r['issues'],metadata,
                                                   override=(kind,form))
@@ -1639,6 +1721,7 @@ class Engine:
                         'form':deepcopy(actual_form),'value':deepcopy(converted)}
                 except (APIError,KeyError,ValueError,TypeError) as exc:
                     r['errors'].append(f'Propriété « {name} » : {exc}')
+        self.templates.mirror_values()
         # Third pass: views and page bodies use the complete property/id mapping.
         converter=ViewConverter(self.property_bindings,self.mapping,
             {k[5:]:v for k,v in self.col_cache.items() if k.startswith('type:')},metadata,anytype_controls=True)
@@ -1654,11 +1737,18 @@ class Engine:
                 except (UnsupportedView,APIError,ValueError,TypeError,KeyError) as exc:
                     issues.add('Propriétés de collection non reproduites : '+str(exc))
             self.convert_views(source_doc,cid,scoped,issues,source_id)
-            report=next((r for r in self.collection_reports if r['name']==next((c['name'] for c in selected_cols if c['id']==source_id),None)),None)
+            if source_id in self.results:
+                self.results[source_id]['issues'].update(issues)
+            report=next((r for r in self.collection_reports if r.get('source_id') == source_id),None)
             if report is not None: report['issues']=sorted(set(report['issues'])|issues)
         for oid,doc in docs.items():
             r=self.results[oid]
             if not r['target_id']: continue
+            if oid in self.collection_documents:
+                r['status']='partial' if r['issues'] or r['errors'] else 'imported'
+                yield self.emit('object',name=r['name'],source_id=oid,target_id=r['target_id'],
+                    status=r['status'],reason=r['reason'],issues=sorted(r['issues']),errors=r['errors'])
+                continue
             props=custom_properties(doc,metadata)
             doc=self.convert_views(doc,r['target_id'],converter,r['issues'],oid)
             self.resolve_file_links(doc.get('blocks') or [])
@@ -1666,12 +1756,16 @@ class Engine:
             self.convert_property_blocks(doc,oid,issues)
             toc_tokens = set()
             if self.destination_version >= (0, 4, 1):
-                from notion_native import marker, replace_toc_markers
+                from notion_native import marker, replace_toc_markers, envelope
                 for index, block in enumerate(doc.get('blocks') or []):
                     if isinstance(block, dict) and block.get('type') in ('table_of_contents','tableOfContents'):
                         token = marker('toc', oid, str(block.get('id') or index))
-                        toc_tokens.add(token)
-                        block.update(type='any2any_toc', marker=token)
+                        if block_depth(block) == 0:
+                            block.update(type='any2any_toc', markdown=envelope(
+                                'table-of-contents', instance_id(oid, str(block.get('id') or index)), {}, ''))
+                        else:
+                            toc_tokens.add(token)
+                            block.update(type='any2any_toc', marker=token)
             cover=doc.get('cover')
             cover_line=''
             if isinstance(cover,dict) and cover.get('format')=='image' and cover.get('file'):
@@ -1686,8 +1780,6 @@ class Engine:
                     issues.add('Couverture image non importée (option fichiers désactivée)')
             elif cover:
                 issues.add('Couverture Anytype non reproduite')
-            if doc.get('kind') == 'template':
-                issues.add('Template importé comme une page ordinaire')
             query_missing = ('query_source' in doc or bool(doc.get('views'))) and not any(
                 b.get('type') in ('dataview', 'any2any_inline_view', 'any2any_saved_view')
                 for b in doc.get('blocks', []) if isinstance(b, dict)
@@ -1730,6 +1822,8 @@ class Engine:
             # value is attempted at object creation; never duplicate it here.
             if cover_line:
                 markdown='\n\n'.join(x for x in (cover_line,markdown) if x)
+            if self.property_previews.get(oid):
+                markdown='\n\n'.join([*self.property_previews[oid],markdown])
             if query_missing:
                 markdown += '\n\n'+notice('notice.dynamic_views')
             description=(doc.get('properties') or {}).get('description') if isinstance(doc.get('properties'),dict) else None
@@ -1757,6 +1851,8 @@ class Engine:
                         fallback=markdown
                     if cover_line:
                         fallback='\n\n'.join(x for x in (cover_line,fallback) if x)
+                    if self.property_previews.get(oid):
+                        fallback='\n\n'.join([*self.property_previews[oid],fallback])
                     try:
                         set_markdown(self.target,self.dest_sid,r['target_id'],self.page_markdown(fallback))
                         r['issues'].add('Rendu riche rejeté par Anytwo : version simplifiée importée')
@@ -1801,6 +1897,9 @@ class Engine:
                 r['status']='partial' if r['issues'] else 'imported'
             except (APIError,ValueError,TypeError,KeyError) as exc:r['errors'].append(str(exc))
             yield self.emit('object',**{**r,'issues':sorted(r['issues'])})
+        self.templates.defaults(entries, docs)
+        for warning in sorted(self.templates.warnings):
+            yield self.emit('message', message='! '+warning)
         removed = self.remove_import_artifacts(list(docs.values()), metadata)
         if removed:
             self.report['removed_properties'] = removed

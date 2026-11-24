@@ -59,6 +59,7 @@ INTRINSIC_PROPERTIES = {
     'internal_key', 'is_archived', 'revision', 'last_opened_date',
     'space_id', 'workspace_id', 'sync_status', 'created_in_context_ref',
     'import_type', 'image_kind', 'participant_permissions', 'participant_status',
+    'source_object', 'sourceobject',
 }
 
 
