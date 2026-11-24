@@ -453,6 +453,7 @@ function plan(){
   }
   return {mode:S.mode,source_space:src,selection:{kind:S.selection.kind,collection_id:S.selection.collectionId,
     type_keys:S.selection.typeKeys,ids:S.selection.ids},target,
+    language:(window.Any2AnyI18n?.getLanguage?.()||'fr'),
     files:$('files-option').checked,follow_links:S.selection.kind!=='space'&&$('links-option').checked,archive_chats:$('chats-option').checked};
 }
 

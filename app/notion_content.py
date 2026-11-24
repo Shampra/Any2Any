@@ -4,6 +4,7 @@ import json
 import re
 from notion_source import notion_id, text
 from rich_content import native_toggle, youtube_markdown, image_markdown, file_html
+from page_text import page_text
 
 
 def escape(value):
@@ -115,7 +116,7 @@ class Content:
                 fragment='<table><tbody>'+''.join(rows)+'</tbody></table>'
             elif typ in ('image','audio','video','file','pdf'):
                 url=(data.get(data.get('type','file')) or {}).get('url','')
-                fragment=youtube_markdown(url,block['id']) if typ=='video' else None
+                fragment=youtube_markdown(url,block['id'],page_text('label.youtube')) if typ=='video' else None
                 if fragment is None:
                     uri=self.e.media(self.source_id,data,typ)
                     if uri:fragment=image_markdown(uri,uri.name,data.get('width')) if typ=='image' else file_html(uri,uri.name)
@@ -126,7 +127,7 @@ class Content:
                     fragment=caption_image(fragment,caption,self.e.mapping[self.source_id],block['id'])
                 elif caption:fragment+='\n\n'+self.rich(data.get('caption',[]))
             elif typ in ('embed','bookmark','link_preview'):
-                url=data.get('url','');fragment=youtube_markdown(url,block['id'])
+                url=data.get('url','');fragment=youtube_markdown(url,block['id'],page_text('label.youtube'))
                 if not fragment:
                     target=self.link(url)
                     label = text(data.get('caption')) or url

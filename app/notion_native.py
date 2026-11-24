@@ -10,6 +10,7 @@ from urllib.parse import quote
 import anytwo_backend as backend
 from anytwo_backend import APIError, _segment
 from inline_views import instance_id
+from page_text import page_text
 
 
 def marker(kind,page,block):
@@ -132,9 +133,9 @@ def replace_toc_markers(api, sid, oid, tokens, issues):
     for row in rows:
         if row.get('text') not in tokens:
             continue
-        text = 'Sommaire · ' + ' · '.join(links) if links else 'Sommaire : aucun titre accessible.'
+        text = page_text('label.toc_links', links=' · '.join(links)) if links else page_text('label.toc_empty')
         if len(text.encode('utf-8')) > 60000:
-            text = 'Sommaire : trop de titres pour être regroupés dans un bloc.'
+            text = page_text('label.toc_too_many')
             issues.add('Sommaire trop long pour être reproduit en un bloc')
         backend.target_write(api, base+'/blocks/'+quote(row['id'],safe=':'), {'set':{'text':text}}, method='PATCH')
         matched.add(row['text'])
@@ -170,7 +171,7 @@ def finalise(engine):
         for token in plan['tocs']:
             matches=[r for r in target_rows if r.get('text')==token]
             if len(matches)!=1:engine.issues(page).add('Emplacement du sommaire non résolu');continue
-            patch_block(engine,page,matches[0]['id'],{'text':'\n'.join(links) if links else 'Sommaire : aucun titre accessible.'})
+            patch_block(engine,page,matches[0]['id'],{'text':'\n'.join(links) if links else page_text('label.toc_empty')})
             engine.issues(page).add('Sommaire importé en liens de blocs ; mise à jour automatique non conservée')
         for spec in plan['synced']:
             if spec['role']!='reference':continue

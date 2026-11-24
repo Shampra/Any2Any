@@ -110,7 +110,7 @@ def youtube_canonical(value):
     except (ValueError,TypeError):return None
 
 
-def youtube_markdown(value,identity=''):
+def youtube_markdown(value,identity='',label='Vidéo YouTube'):
     canonical=youtube_canonical(value)
     if canonical is None:return None
     instance='any2any-'+hashlib.sha256((identity+'\0'+canonical).encode()).hexdigest()[:24]
@@ -118,7 +118,7 @@ def youtube_markdown(value,identity=''):
               'data':{'provider':'youtube','url':canonical}}
     opening='<!-- any:block '+json.dumps(envelope,separators=(',',':'))+' -->'
     closing='<!-- /any:block '+json.dumps({'instance':instance},separators=(',',':'))+' -->'
-    return opening+'\n\n[Vidéo YouTube]('+canonical+')\n\n'+closing
+    return opening+'\n\n['+label+']('+canonical+')\n\n'+closing
 
 
 def file_anchor_html(uri,name):

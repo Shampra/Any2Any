@@ -66,6 +66,7 @@ def start(session,data,api_lock,import_lock,budget,port,save_report):
                         selection=notion_tree.select(client,known,rules,whole,catalog)
                         metrics(pages=len(selection['pages']))
                         selection['workspace_icon']=session.get('identity',{}).get('workspace_icon')
+                        selection['language']=data.get('language')
                         engine=Engine(client,Anytwo(port),selection,options,progress,check,persist)
                         engine.metrics=metrics
                         result=engine.run()

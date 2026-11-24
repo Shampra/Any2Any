@@ -33,6 +33,7 @@ from anytwo_backend import (
                          attach_file, get_file_info, create_editor_block, add_membership,
                          delete_column, target_write, local_get, _segment)
 from chat_archives import histories as chat_histories, markdown as chat_markdown
+from page_text import page_text, notice, activate, language
 from logic import identify_links, INTRINSIC_PROPERTIES, is_conversation, INLINE_MENTION_RE
 
 MAX_OBJECTS = 500
@@ -426,7 +427,7 @@ def _nested_fragment(blocks, mapping=None, sid=None, names=None, issues=None,
             level=int(kind[-1]); pieces.append(f'<h{level}>{text}</h{level}>')
         elif kind=='table':
             markup=rich_table(block,issues,mapping,sid,names,files_allowed,file_import)
-            pieces.append(markup or '<p>Attention : tableau non importé</p>')
+            pieces.append(markup or '<p>'+page_text('notice.table_skipped')+'</p>')
         elif kind=='code':
             pieces.append('<pre><code>'+html.escape(str(block.get('text') or ''))+'</code></pre>')
         elif kind in FILE_TYPES:
@@ -443,10 +444,10 @@ def _nested_fragment(blocks, mapping=None, sid=None, names=None, issues=None,
                     pieces.append(f'<img src="{uri}" alt="{label}"{size}>' if kind=='image' else file_anchor_html(imported,name))
                 except APIError as exc:
                     issues.add('Fichier imbriqué non importé : '+str(exc))
-                    pieces.append('<p>Attention : fichier non importé : '+html.escape(name)+'</p>')
+                    pieces.append('<p>'+page_text('notice.file_skipped',name=html.escape(name))+'</p>')
             else:
                 issues.add('Fichier imbriqué non importé (indisponible ou option désactivée)')
-                pieces.append('<p>Attention : fichier non importé : '+html.escape(name)+'</p>')
+                pieces.append('<p>'+page_text('notice.file_skipped',name=html.escape(name))+'</p>')
         elif kind in ('row','column','group','table_row','table_cell'):
             nested=block.get('blocks') or block.get('children') or []
             if isinstance(nested,list):pieces.append(_nested_fragment(nested,mapping,sid,names,issues,files_allowed,file_import))
@@ -611,7 +612,7 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
     blocks = doc.get('blocks') or []
     if not isinstance(blocks, list):
         issues.add('Structure de blocs inconnue')
-        return '> **Attention : contenu non importable (structure des blocs non reconnue).**'
+        return notice('notice.content_unreadable')
     lines = []
     i=0
     while i<len(blocks):
@@ -670,7 +671,7 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
             # A column/group without its parent row cannot be reconstructed.
             issues.add('Disposition en colonnes simplifiée')
         elif typ in ('video','bookmark') and rich_mode and youtube_markdown(block.get('url') or ''):
-            lines.append(youtube_markdown(block['url'],str(block.get('id') or i)))
+            lines.append(youtube_markdown(block['url'],str(block.get('id') or i),page_text('label.youtube')))
         elif typ in FILE_TYPES:
             fid = str(block.get('object_id') or block.get('hash') or '')
             name = str(block.get('name') or (typ+' '+fid[:10]))
@@ -683,46 +684,46 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
                     else:lines.append(file_html(uri,name))
                 except (APIError, ValueError) as e:
                     issues.add(f'Fichier indisponible : {name} ({e})')
-                    lines.append(f'> **Attention : fichier non importé : {name}.**')
+                    lines.append(notice('notice.file_skipped',name=name)+'.')
             else:
                 issues.add('Fichiers non importés'+(' (option désactivée)' if not files_allowed else ' (identifiant absent)'))
-                lines.append(f'> **Attention : fichier non importé : {name}.**')
+                lines.append(notice('notice.file_skipped',name=name)+'.')
         elif typ == 'link':
             oid = str(block.get('object_id') or '')
-            name = names.get(oid, oid or 'Objet lié')
+            name = names.get(oid, oid or page_text('label.linked_object'))
             uri = reference_link(oid, mapping, sid, names)
             if uri: lines.append(f'[{name}]({uri})')
             else:
                 issues.add('Lien vers un objet non importé')
-                lines.append(f'> **Attention : lien vers « {name} » non reconstruit.**')
+                lines.append(notice('notice.link_not_rebuilt',name=name))
         elif typ == 'bookmark':
             issues.add('Bookmark enrichi non reproduit')
             url = bookmark_block_url(block) or ''
             title=bookmark_block_title(block,names,url)
-            lines.append(titled_link(title,url) if url else '> **Attention : bookmark sans URL exploitable.**')
+            lines.append(titled_link(title,url) if url else notice('notice.bookmark_no_url'))
         elif typ in ('table_of_contents','tableOfContents'):
             issues.add('Table des matières non reproduite')
-            lines.append('> **Attention : table des matières dynamique non importée.**')
+            lines.append(notice('notice.toc_dynamic'))
         elif typ == 'property':
             issues.add('Propriété intégrée à la page non reproduite')
             field = block.get('key') or block.get('property') or '(inconnue)'
             value = (doc.get('properties') or {}).get(field, '')
-            lines.append(f'> **Attention : propriété intégrée non reproduite : {field}.**' +
-                         (f' Valeur source : {json.dumps(value, ensure_ascii=False)}' if value else ''))
+            lines.append(notice('notice.property_block',field=field) +
+                         (' '+page_text('notice.property_block_value',value=json.dumps(value, ensure_ascii=False)) if value else ''))
         elif typ == 'any2any_property':
             lines.append(block['markdown'])
         elif typ == 'any2any_toc':
             lines.append(block['marker'])
         elif typ == 'any2any_inline_view':
             lines.append(block['markdown'])
-            if block.get('failed'):lines.append('> **Attention : certaines vues secondaires n’ont pas été converties.**')
+            if block.get('failed'):lines.append(notice('notice.secondary_views'))
         elif typ == 'any2any_saved_view':
-            lines.append(titled_link('Vue : '+str(block.get('name') or 'Anytype'), 'any://o/'+sid+'/'+block['target_id']))
+            lines.append(titled_link(page_text('label.view',name=str(block.get('name') or 'Anytype')), 'any://o/'+sid+'/'+block['target_id']))
             if block.get('failed'):
-                lines.append('> **Attention : certaines vues n’ont pas été converties ; définition source conservée dans le rapport.**')
+                lines.append(notice('notice.views'))
         elif typ == 'dataview':
             issues.add('Collection / vue intégrée non reproduite')
-            lines.append('> **Attention : collection ou vue intégrée non importée.**')
+            lines.append(notice('notice.collection_view'))
         elif typ == 'table':
             markup=rich_table(block,issues,mapping,sid,names,files_allowed,file_import) if rich_mode else None
             if markup:
@@ -750,7 +751,7 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
                     issues.add('Tableau converti en Markdown (structure enrichie non garantie)')
                 else:
                     issues.add('Tableau complexe non reproduit')
-                    lines.append('> **Attention : tableau complexe non importé.**')
+                    lines.append(notice('notice.table_complex'))
         elif typ in ('embed','equation'):
             content = str(block.get('text') or block.get('url') or '')
             processor = str(block.get('processor') or 'latex')
@@ -759,18 +760,18 @@ def render_blocks(doc, mapping, sid, names, files_allowed, file_import, issues, 
                 lines.append('```'+lang+'\n'+content+'\n```')
                 issues.add(f'Rendu intégré « {processor} » remplacé par son code source')
             elif rich_mode and youtube_markdown(content):
-                lines.append(youtube_markdown(content,str(block.get('id') or i)))
+                lines.append(youtube_markdown(content,str(block.get('id') or i),page_text('label.youtube')))
             elif content.startswith(('https://','http://')):
-                lines.append(f'[Contenu intégré {processor}]({content})')
+                lines.append(f'[{page_text("label.embed_processor",processor=processor)}]({content})')
                 issues.add(f'Intégration externe « {processor} » remplacée par un lien')
             else:
                 issues.add(f'Intégration « {processor} » non reproduite')
-                lines.append('> **Attention : contenu intégré non importé.**')
+                lines.append(notice('notice.embed'))
         elif typ in ('title','description','featured_properties','icon','chat','widget'):
             issues.add('Bloc système ou widget non reproduit')
         else:
             issues.add(f'Bloc inconnu « {typ or "sans type"} »')
-            lines.append('> **Attention : bloc non pris en charge (« '+typ+' »).**')
+            lines.append(notice('notice.block_unsupported',type=typ))
             # Preserve the raw data, rather than silently throwing it away.
             lines.append('```json\n'+json.dumps(block,ensure_ascii=False,indent=2)+'\n```')
     return '\n\n'.join(line for line in lines if line)
@@ -811,9 +812,9 @@ def hydrate_bookmark_blocks(doc, source, sid, names, cache=None):
 def write_markdown_with_embeds(target, sid, oid, markdown, native_embeds, issues, markers=True):
     """Resolve legacy markers to native envelopes; never emit iframe source."""
     for index,embed in enumerate(native_embeds):
-        replacement=youtube_markdown(embed.get('url',''),str(index))
+        replacement=youtube_markdown(embed.get('url',''),str(index),page_text('label.youtube'))
         if replacement is None:
-            replacement=titled_link('Contenu intégré',embed.get('url',''))
+            replacement=titled_link(page_text('label.embed'),embed.get('url',''))
             issues.add('Intégration non reconnue : lien externe de remplacement')
         markdown=markdown.replace(f'ANYTWO_NATIVE_EMBED_{index:04d}_PLACEHOLDER',replacement)
     return set_markdown(target,sid,oid,markdown if markers else legacy_markup(markdown))
@@ -911,6 +912,7 @@ class Engine:
         self.view_hosts={}
         self.widget_warnings = set()
         self.native_markup=True
+        self.language=language(plan.get('language'))
         self.type_defs={}; self.collection_reports=[]; self.results={}; self.report={'status':'running','objects':[],'errors':[], 'warnings':{},'created':{}}
         self.names={obj['id']:obj['name'] for obj in inventory['all']}
 
@@ -1402,6 +1404,7 @@ class Engine:
 
     def run(self):
         from anytwo_backend import server_version
+        activate(self.language)
         self.destination_version = server_version(self.target)
         # Anytwo 0.5+ shows the native comment envelopes as page text, so the
         # importer keeps a plain Markdown rendering that degrades gracefully.
@@ -1675,7 +1678,7 @@ class Engine:
                 if plan.get('files'):
                     try:
                         uri=self.add_file(oid,str(cover['file']),'couverture-'+r['name']+'.png','image/png')
-                        cover_line=image_markdown(uri,'Couverture de '+r['name'])
+                        cover_line=image_markdown(uri,page_text('label.cover',name=r['name']))
                         issues.add('Couverture ajoutée dans la page (présentation d’origine non reproduite)')
                     except APIError as e:
                         issues.add('Couverture image non importée : '+str(e))
@@ -1703,7 +1706,7 @@ class Engine:
                 doc=hydrate_bookmark_blocks(doc,self.source,self.sid,self.names)
             if is_bookmark(entries[oid],doc):
                 url=bookmark_url(doc)
-                markdown=titled_link(r['name'],url) if url else '> **Attention : bookmark non importé : URL introuvable.**'
+                markdown=titled_link(r['name'],url) if url else notice('notice.bookmark_not_imported')
                 issues.add('Bookmark converti en lien titré' if url else 'Bookmark sans URL exploitable')
             else:
                 markdown_embeds=[]
@@ -1720,7 +1723,7 @@ class Engine:
                         markdown += '\n\n'+(image_markdown(uri,getattr(uri,'name',r['name'])) if source_type=='image' else file_html(uri,getattr(uri,'name',r['name'])))
                     except APIError as e:
                         issues.add('Fichier source non importé : '+str(e))
-                        markdown+='\n\n> **Attention : fichier source non importé.**'
+                        markdown+='\n\n'+notice('notice.source_file')
                 else:
                     issues.add('Fichier source non importé (option désactivée)')
             # Icons are object metadata, not body text. An optional native emoji
@@ -1728,16 +1731,16 @@ class Engine:
             if cover_line:
                 markdown='\n\n'.join(x for x in (cover_line,markdown) if x)
             if query_missing:
-                markdown += '\n\n> **Attention : les vues ou requêtes dynamiques de cet objet n’ont pas été reproduites.**'
+                markdown += '\n\n'+notice('notice.dynamic_views')
             description=(doc.get('properties') or {}).get('description') if isinstance(doc.get('properties'),dict) else None
             if description:
                 description=replace_inline_links(str(description),self.mapping,self.dest_sid,self.names,issues)
                 markdown='> '+description+'\n\n'+markdown
             if {'Lien vers un objet non importé','Mention vers un objet non importé'} & issues:
-                markdown+='\n\n> **Attention : certains liens renvoient à des objets Anytype non importés.**'
+                markdown+='\n\n'+notice('notice.missing_links')
             # Property failures are also explicit in the target page.
             if r['errors']:
-                markdown += '\n\n> **Attention : certaines propriétés ou parties de cet objet n’ont pas été importées.**'
+                markdown += '\n\n'+notice('notice.partial_properties')
             if markdown.strip():
                 try:
                     write_markdown_with_embeds(self.target,self.dest_sid,r['target_id'],markdown,markdown_embeds,issues,markers=self.native_markup)
@@ -1749,7 +1752,7 @@ class Engine:
                         fallback=render_blocks(doc,self.mapping,self.dest_sid,self.names,
                                                bool(plan.get('files')),load_file,simpler_issues,
                                                rich_mode=False)
-                        fallback='> **Attention : présentation riche non reproduite.**\n\n'+fallback
+                        fallback=notice('notice.rich_rejected')+'\n\n'+fallback
                     else:
                         fallback=markdown
                     if cover_line:
@@ -1761,7 +1764,7 @@ class Engine:
                         r['errors'].append(f'Contenu : {e}; tentative de repli : {e2}')
                         try:
                             set_markdown(self.target,self.dest_sid,r['target_id'],self.page_markdown(
-                                         '> **Attention : le contenu original n’a pas pu être transféré. Consultez le rapport de migration.**'))
+                                         notice('notice.content_failed')))
                         except APIError:
                             r['errors'].append('Impossible d’insérer le message de remplacement dans la page.')
                 if toc_tokens:
@@ -1793,7 +1796,7 @@ class Engine:
                 content=chat_markdown(history,bool(plan.get('files')),
                     lambda fid,label,mime:self.add_file(oid,fid,label,mime),r['issues'],
                     lambda text:replace_inline_links(text,self.mapping,self.dest_sid,self.names,r['issues']),
-                    lambda ref:titled_link(self.names.get(ref,'Objet lié'),reference_link(ref,self.mapping,self.dest_sid,self.names)) if ref in self.mapping else None)
+                    lambda ref:titled_link(self.names.get(ref,page_text('label.linked_object')),reference_link(ref,self.mapping,self.dest_sid,self.names)) if ref in self.mapping else None)
                 set_markdown(self.target,self.dest_sid,r['target_id'],self.page_markdown(content))
                 r['status']='partial' if r['issues'] else 'imported'
             except (APIError,ValueError,TypeError,KeyError) as exc:r['errors'].append(str(exc))
