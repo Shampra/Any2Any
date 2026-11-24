@@ -608,14 +608,6 @@ function openCompatibility(){
     for(const text of limits){const item=document.createElement('li');item.textContent=text;list.append(item);}
   }else{
     list.innerHTML=list.dataset.anytype;intro.innerHTML=intro.dataset.anytype;
-    for(const text of [
-      'Une vue importée depuis Anytype ne peut être basée que sur une collection Anytwo',
-      'Les vues intégrées ne peuvent pas rester dans des colonnes de blocs',
-      'Les propriétés système intégrées affichent la valeur Anytwo, par exemple le créateur de la page importée',
-      'Le soulignement dépend de la version Anytwo'
-    ]){
-      const item=document.createElement('li');item.textContent=text;list.append(item);
-    }
   }
   hidden('compat-overlay',false);
   $('close-compat').focus();

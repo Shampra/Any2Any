@@ -67,9 +67,13 @@ def matches_filter(node, doc, item):
     value=source_value(doc,node.get('property'),item)
     other=node.get('value');op=node.get('condition')
     if op=='exists':return value is not MISSING
+    if op in ('empty','not_empty'):
+        empty = value is MISSING or value is None or value == '' or value == []
+        return empty if op=='empty' else not empty
     if value is MISSING:return op in ('not_equal','not_in','not_contains')
-    if op=='equal':return value==other
-    if op=='not_equal':return value!=other
+    if op in ('equal','not_equal'):
+        equal = other in value if isinstance(value,list) and not isinstance(other,list) else value==other
+        return equal if op=='equal' else not equal
     if op in ('contains','not_contains'):
         if not isinstance(other,str) or not other.strip() or other != other.strip():
             raise UnsupportedView('Valeur de filtre texte non transposable')

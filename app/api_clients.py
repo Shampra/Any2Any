@@ -222,6 +222,10 @@ class Anytype:
         sid = urllib.parse.quote(space_id, safe='')
         return paginated(self.port, f'/v2/spaces/{sid}/widgets', self.key)
 
+    def templates(self, space_id):
+        sid = urllib.parse.quote(space_id, safe='')
+        return paginated(self.port, f'/v2/spaces/{sid}/templates?ids=full', self.key)
+
     def object_detail(self, space_id, object_id):
         sid = urllib.parse.quote(space_id, safe='')
         oid = urllib.parse.quote(object_id, safe='')
