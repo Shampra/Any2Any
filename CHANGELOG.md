@@ -1,5 +1,27 @@
 # Changes / Modifications
 
+## Unreleased — 2026-11-24 — Anytype import corrections / Correctifs d’import Anytype
+
+### English
+
+- Import native Anytwo templates with their content, properties and unambiguous collection defaults. Preserve an existing destination default when it differs.
+- Convert top-level Anytype tables of contents to native dynamic blocks on compatible Anytwo versions. Keep nested tables of contents as static block links.
+- Preserve compatible nested AND/OR filters, single-select comparisons and empty-value conditions in both stored queries and client controls.
+- Link source collections directly to their Anytwo collection, and apply saved views to referenced collections, including archived source collections. Preserve compatible filters, sorts, groups and visible properties.
+- Preserve date/time values without downgrading their destination descriptor. Display readable source type names, convert object mentions to inline links and correctly rewrite escaped internal link parameters.
+- Place Anytype file/image property content at the start of the page instead of creating text columns. Keep attachment reuse across pages.
+- Refresh the Anytype compatibility list, its translations and public documentation. Keep release-publication tests independent of locally built archives.
+
+### Français
+
+- Importer les templates natifs Anytwo avec leur contenu, leurs propriétés et leur défaut de collection lorsqu’il est déterminable. Conserver un défaut cible existant lorsqu’il diffère.
+- Convertir les sommaires Anytype de premier niveau en blocs dynamiques natifs sur les versions compatibles. Conserver les sommaires imbriqués sous forme de liens statiques vers les blocs.
+- Reprendre les filtres ET/OU imbriqués compatibles, les comparaisons de select simple et les conditions de valeurs vides, dans la requête et les contrôles du client.
+- Lier directement les collections source à leur collection Anytwo et appliquer les vues enregistrées aux collections référencées, même archivées côté source. Conserver les filtres, tris, regroupements et propriétés visibles compatibles.
+- Préserver les dates avec heure sans rétrograder leur descripteur cible. Afficher les noms lisibles des types source, convertir les mentions en liens inline et réécrire correctement les paramètres échappés des liens internes.
+- Placer le contenu des propriétés fichiers/images Anytype en début de page au lieu de créer des colonnes texte. Réutiliser les pièces jointes entre les pages.
+- Actualiser la liste des incompatibilités Anytype, ses traductions et la documentation publique. Rendre les tests de publication indépendants des archives construites localement.
+
 ## 0.10.2 — 2026-11-16 — Migration fidelity / Fidélité des imports
 
 ### English

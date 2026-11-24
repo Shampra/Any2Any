@@ -111,7 +111,7 @@ def replace_toc_markers(api, sid, oid, tokens, issues):
     base = f'/spaces/{_segment(sid)}/objects/{_segment(oid)}/editor/editor_blocks'
     data = backend.local_get(api.port, f'/v1/spaces/{_segment(sid)}/query', method='POST',
         body={'objectId':oid,'dataset':'editor_blocks','sort':['nav.pos'],'limit':10000}, timeout=20)
-    if data.get('hasMore') or data.get('has_more'):
+    if data.get('hasMore') or data.get('has_more') or data.get('hasNext'):
         raise APIError('Lecture des blocs cible incomplète')
     from notion_content import escape
     rows = data.get('records', [])

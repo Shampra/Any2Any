@@ -42,7 +42,7 @@ def enrich_descriptor(spec, form, issues=None):
     if form.get('type') == 'choice':
         form.setdefault('config', {})['optionSort'] = 'manual'
     if spec.get('format') == 'date' and 'include_time' in spec:
-        form['type'] = 'datetime' if spec['include_time'] else 'date'
+        form['type'] = 'datetime' if spec['include_time'] or form.get('type') == 'datetime' else 'date'
     if spec.get('format') == 'objects' and 'max_count' in spec:
         form.setdefault('config', {})['multiple'] = spec['max_count'] != 1
     if issues is not None:
@@ -145,6 +145,20 @@ class ViewConverter:
         for path, spec, form in self.fields(node.get('property')):
             if spec.get('format')=='date' and condition in ('less','less_or_equal'):
                 raise UnsupportedView('Comparaison de dates : comportement Anytype des valeurs vides non reproduit')
+            if condition in ('empty', 'not_empty'):
+                fmt = spec.get('format')
+                empty = [{path: {'$exists': False}}]
+                if fmt in ('text', 'url', 'email', 'phone'):
+                    empty.append({path: ''})
+                elif fmt in ('select', 'multi_select', 'objects'):
+                    empty.extend([{path: ''}, {path: {'$size': 0}}])
+                elif fmt not in ('number', 'date'):
+                    raise UnsupportedView('Valeur vide non transposable pour ce format : '+str(fmt))
+                part = {'$or' if condition == 'empty' else '$nor': empty}
+                if not path.startswith('any.'):
+                    part = {'$and': [{'any.collections': path.split('.')[0]}, part]}
+                variants.append(part)
+                continue
             if condition == 'exists':
                 rule = {'$exists': True}
             elif condition in ('contains', 'not_contains') and spec.get('format') in ('text', 'url', 'email', 'phone'):
@@ -157,9 +171,11 @@ class ViewConverter:
                 regex = {'$regex': '(?i)' + literal}
                 rule = {'$not': regex} if condition == 'not_contains' else regex
             elif condition in scalar_ops:
-                if spec.get('format') in ('select', 'multi_select', 'objects', 'files') and condition in ('equal', 'not_equal'):
-                    raise UnsupportedView('Égalité de listes Anytype non garantie')
                 value = self.value(node.get('value'), spec, form)
+                if spec.get('format') in ('select', 'multi_select', 'objects', 'files') and condition in ('equal', 'not_equal'):
+                    if spec.get('format') != 'select' or isinstance(value, list) and len(value) != 1:
+                        raise UnsupportedView('Égalité de listes Anytype non garantie')
+                    value = value[0] if isinstance(value, list) else value
                 if condition in ('in', 'not_in', 'all_in') and not isinstance(value, list):
                     raise UnsupportedView('Filtre de liste sans liste')
                 rule = {scalar_ops[condition]: value}
@@ -261,7 +277,7 @@ def collection_presentation(converter, view, scope, query, settings, issues):
         'filters':ui_clauses(converter,view.get('filters',[]),'filter-',issues),
         'sort':[{'propertyId':ui_field(converter,n['property'])[0],'dir':n.get('direction','asc')}
                 for n in view.get('sorts',[])]}
-    group=view.get('group_settings')
+    group=view.get('group_settings') or ({'property':view['group_by']} if view.get('group_by') else None)
     if group:
         field,spec,form=ui_field(converter,group['property'])
         if spec.get('format') not in ('select','multi_select','checkbox','date'):
