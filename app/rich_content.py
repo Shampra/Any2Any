@@ -143,15 +143,18 @@ def legacy_markup(markdown):
     ranges=_protected_blocks(lines)
     if not ranges:
         return _legacy_markup_text(str(markdown),toggle)
+    def sentinel(position):
+        # A NUL-delimited token cannot appear in Markdown source text.
+        return '\x00any2any-protected-'+str(position)+'\x00'
     pieces=[];cursor=0
     for position,(start,end) in enumerate(ranges):
         pieces.append('\n'.join(lines[cursor:start]))
-        pieces.append('\x01'+str(position)+'\x02')
+        pieces.append(sentinel(position))
         cursor=end
     pieces.append('\n'.join(lines[cursor:]))
     text=_legacy_markup_text('\n'.join(pieces),toggle)
     for position,(start,end) in enumerate(ranges):
-        text=text.replace('\x01'+str(position)+'\x02','\n'.join(lines[start:end]))
+        text=text.replace(sentinel(position),'\n'.join(lines[start:end]))
     return text
 
 

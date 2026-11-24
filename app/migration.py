@@ -1231,7 +1231,7 @@ class Engine:
             source_spec=converter.metadata.get(name.casefold()) or declared
             if name!='type':
                 identity=str(source_spec.get('internal_key') or source_spec.get('key') or source_spec.get('id') or '')
-                if internal_record_property(identity or name):continue
+                if identity and internal_record_property(identity):continue
             if source_spec.get('format') == 'files':
                 continue
             candidates=[] if name=='type' else converter.bindings.get(name.casefold(),[])

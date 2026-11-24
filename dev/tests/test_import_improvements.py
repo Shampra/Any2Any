@@ -368,6 +368,35 @@ class ImportArtifactTests(unittest.TestCase):
             engine.property('c1','Source object','text','x',set(),{})
         self.assertEqual(engine.created_columns,[])
 
+    def test_engine_call_sites_never_track_a_display_label(self):
+        # A custom property whose vocabulary entry has no key/id/internal_key
+        # must not be recorded under its label as a cleanup identity.
+        class Source:
+            def object_detail(self, sid, oid):
+                return {'properties':{'name':'Kitty','Source object':'A note'},
+                        'blocks':[{'type':'paragraph','text':'Body'}]}
+        kitty={'id':'k','name':'Kitty','type':'character'}
+        inventory={'all':[kitty],'objects':[kitty],'collections':[],'members':{},'standalone':[],
+                   'types':[{'id':'type-character','key':'character','name':'Characters','items':[kitty]}],
+                   'stats':{}}
+        plan={'source_space':{'id':'src','name':'Source'},'selection':{'kind':'space'},
+              'target':{'space_mode':'create','space_name':'Dest','collection_mode':'none','type_mappings':[]},
+              'mode':'simple','follow_links':False,'files':False}
+        engine=Engine(Source(),object(),inventory,plan)
+        with patch('migration.create_space',return_value='dest'),\
+             patch('migration.create_collection',return_value='coll1'),\
+             patch('migration.create_object',return_value='new-k'),\
+             patch('migration.anytype_property_definitions',return_value={}),\
+             patch('migration.list_columns',return_value=[]),\
+             patch('migration.add_column',return_value='prop'),\
+             patch('migration.set_column_value'),\
+             patch('migration.set_markdown'),\
+             patch('migration.delete_column') as delete:
+            list(engine.run())
+        self.assertFalse(any(row.get('source_key')=='Source object'
+                             for row in engine.created_columns))
+        delete.assert_not_called()
+
     def test_untranslated_template_settings_are_reported(self):
         from migration import Engine
         engine=Engine.__new__(Engine)
