@@ -75,3 +75,5 @@ The test suite uses simulated sources and destinations. API re-reads, conversion
 - [Anytwo HTTP API](https://docs.any.org/reference/http-api.html)
 - [Anytwo reading and filters](https://docs.any.org/database/reading-data.html)
 - [Anytwo editor](https://docs.any.org/types/editor.html)
+
+The system creation date uses Anytwo’s native `createdAt` field. No duplicate “Creation date” column is created and no system timestamp is overwritten. Views and sorts use the Anytwo creation time, set during import; this difference is reported. A custom property with the same display name is still imported according to its identity.

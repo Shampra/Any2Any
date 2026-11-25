@@ -39,7 +39,7 @@ def ui_field(converter,name):
     fields=converter.fields(name)
     if len(fields)!=1:raise UnsupportedView('Propriété de vue en ligne ambiguë : '+str(name))
     path,spec,form=fields[0]
-    return ('any.name' if path=='any.name' else path.split('.',1)[1]),spec,form
+    return (path if path in ('any.name','createdAt') else path.split('.',1)[1]),spec,form
 
 
 def ui_clause(converter,node,identity,*,inactive=False):

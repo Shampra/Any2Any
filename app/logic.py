@@ -49,7 +49,7 @@ INLINE_MENTION_RE = re.compile(
 # type identifiers are intrinsic to object creation as well.
 INTRINSIC_PROPERTIES = {
     'name', 'title', 'icon', 'type', 'id', 'createdate', 'creationdate',
-    'created_date', 'created_time', 'created_at', 'creation_date', 'createdby',
+    'created_date', 'createddate', 'created_time', 'created_at', 'createdat', 'creation_date', 'createdby',
     'created_by', 'creator', 'author', 'lastmodifieddate', 'last_modified_date',
     'last_modified_by', 'modifiedby', 'modified_by', 'modifiedat',
     'modified_at', 'lastmodifiedby', 'last_modified_time', 'updated_at',

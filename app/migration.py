@@ -256,6 +256,16 @@ def internal_property(name, vocabulary=None, doc=None):
     return _system_meta(meta)
 
 
+def creation_date_property(name, vocabulary=None):
+    """Recognise the source stamp by identity, preserving custom homonyms."""
+    spec = (vocabulary or {}).get(str(name).casefold()) or {}
+    identity = str(spec.get('internal_key') or spec.get('key') or spec.get('id') or name)
+    return (_normalized_key(identity) in {
+        'created_date', 'createddate', 'createdate', 'creation_date',
+        'creationdate', 'created_at', 'createdat', 'created_time'
+    } and _is_system_identity(identity, name, vocabulary))
+
+
 def custom_properties(doc, vocabulary=None):
     props = doc.get('properties')
     if not isinstance(props, dict): return {}
@@ -1224,6 +1234,14 @@ class Engine:
             if name.casefold()=='name':continue
             declared=next((v for v in block.get('properties',[]) if str(v.get('property','')).casefold()==name.casefold()),{})
             source_spec=converter.metadata.get(name.casefold()) or declared
+            if creation_date_property(name, {**converter.metadata, name.casefold():source_spec}):
+                # Native derived stamp: never create a collection column or try
+                # to overwrite it with the source's historical timestamp.
+                bindings[name.casefold()] = [('createdAt',
+                    {'format':'date', 'name':source_spec.get('name') or 'Creation date'},
+                    {'type':'datetime'})]
+                issues.add('Date de création système : champ natif Anytwo utilisé ; date source non conservée')
+                continue
             if name!='type':
                 identity=str(source_spec.get('internal_key') or source_spec.get('key') or source_spec.get('id') or '')
                 if identity and internal_record_property(identity):continue

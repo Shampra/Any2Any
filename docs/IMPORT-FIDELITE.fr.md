@@ -75,3 +75,5 @@ La suite de tests utilise des sources et destinations simulées. Des relectures 
 - [API HTTP Anytwo](https://docs.any.org/reference/http-api.html)
 - [Lecture et filtres Anytwo](https://docs.any.org/database/reading-data.html)
 - [Éditeur Anytwo](https://docs.any.org/types/editor.html)
+
+La date de création système utilise le champ natif `createdAt` d’Anytwo. Aucun doublon « Creation date » n’est créé et aucune date système n’est forcée. Les vues et tris utilisent la date Anytwo, correspondant à la création lors de l’import ; cette différence est signalée. Une propriété personnalisée homonyme reste importée selon son identité.

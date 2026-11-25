@@ -4,6 +4,8 @@
 
 ### English
 
+- Use Anytwo’s read-only creation stamp for Anytype system creation-date columns and view sorts; avoid duplicate collection properties while preserving custom homonyms.
+
 - Convert Anytype inline `@` mentions to native object links in page text, tables, columns and the description. Mention targets join the import when linked items are enabled; otherwise the label stays as plain text with a report warning.
 - Stop importing Anytype record bookkeeping (`Source object`, `template_name_prefill_type` and other internal keys) as Anytwo columns. Classification uses the verified property identity, never a label or a `template_` prefix, so custom properties such as `template_notes` are preserved; cleanup only removes columns this import created and tracked, and untranslatable template settings are reported.
 - Fix property write failures: empty url/email/phone/number/date values are skipped instead of aborting the property, and relation columns always receive `any://` URI arrays.
@@ -22,6 +24,8 @@
 - Refresh the Anytype compatibility list, its translations and public documentation. Keep release-publication tests independent of locally built archives.
 
 ### Français
+
+- Utiliser la date de création native en lecture seule d’Anytwo pour les colonnes et tris basés sur la date système Anytype, sans doublon de propriété ; préserver les propriétés personnalisées homonymes.
 
 - Convertir les mentions `@` Anytype en liens d’objet natifs dans le texte, les tableaux, les colonnes et la description. Les cibles rejoignent l’import avec l’option des éléments liés ; sinon le libellé reste en texte brut avec un avertissement dans le rapport.
 - Ne plus importer la comptabilité interne d’Anytype (`Source object`, `template_name_prefill_type` et autres clés internes) comme colonnes Anytwo. La classification utilise l’identité vérifiée de la propriété, jamais un libellé ni un préfixe `template_` : les propriétés personnalisées telles que `template_notes` sont conservées ; le nettoyage ne retire que les colonnes créées et tracées par cet import, et les réglages de template non transposables sont signalés.
