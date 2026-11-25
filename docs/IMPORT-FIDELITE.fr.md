@@ -56,7 +56,7 @@ Les toggles et titres repliables utilisent les marqueurs natifs `any:collapsible
 
 Les vidéos YouTube utilisent une enveloppe native `embed`. Les fichiers audio utilisent les liens de fichiers reconnus par le lecteur du client. Les icônes utilisent la propriété universelle `any.icon`, avec un emoji ou une référence de fichier. Les bookmarks enrichis deviennent des liens titrés.
 
-Sur les versions qui stockent les commentaires HTML comme blocs génériques, les enveloppes `any:collapsible`, `any:columns` et `any:block` sont écrites en Markdown simple : titre en gras ou en titre, colonnes l’une après l’autre, lien pour l’intégration. Le sommaire dynamique natif est conservé lorsqu’il est pris en charge et ne disparaît jamais silencieusement.
+Le client Anytwo actuel interprète ces marqueurs natifs, même lorsque le serveur les stocke en blocs `html`. Ils sont transmis sans nettoyage global : les retirer ferait perdre la structure des colonnes, les vues en ligne, les propriétés intégrées, les légendes et la synchronisation des blocs. Les éléments réellement non pris en charge restent adaptés individuellement et signalés dans le bilan.
 
 Le soulignement dépend du support Markdown de la version Anytwo. Les couleurs de texte, de fond, de blocs, de cellules et de callouts, l’alignement et les mises en page avancées avec vues dans des callouts ou colonnes restent des limites. Les balises de code sont conservées littéralement, y compris à l’intérieur des blocs de code.
 

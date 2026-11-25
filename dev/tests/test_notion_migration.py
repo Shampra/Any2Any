@@ -56,6 +56,54 @@ class MigrationTests(unittest.TestCase):
         e=self.engine({'pages':{},'schemas':{SOURCE:deepcopy(SCHEMA)},'warnings':[]});report=e.run()
         self.assertEqual(len(e.collections),1);self.assertEqual(report['totals']['total'],0)
         self.assertFalse(any(path=='create_object' for path,_ in self.calls))
+
+    def test_current_server_preserves_native_blocks_through_sync_finalisation(self):
+        """Exercise normal conversion, the actual write boundary and finalisation."""
+        import re
+        from rich_content import ImportedFile
+        original_children = self.source.children
+        def block(oid, kind, data=None, children=False):
+            return {'id':oid, 'type':kind, kind:data or {}, 'has_children':children}
+        def children(oid):
+            if oid == ROOT:
+                return original_children(oid) + [
+                    block('toggle', 'toggle', {'rich_text':rich('Title')}, True),
+                    block('callout', 'callout', {'rich_text':rich('Notice')}),
+                    block('video', 'embed', {'url':'https://youtu.be/LMXMbeKyneQ'}),
+                    block('image', 'image', {'type':'external', 'external':{'url':'https://example.org/photo.png'},
+                                            'caption':rich('Caption')}),
+                    block('original', 'synced_block', {}, True),
+                    block('code', 'code', {'language':'html', 'rich_text':rich('<!-- any:columns {"widths":[1,1]} -->')})]
+            if oid == CHILD:
+                return [block('reference', 'synced_block', {'synced_from':{'block_id':'original'}})]
+            if oid in ('toggle', 'original'):
+                return [block(oid+'-body', 'paragraph', {'rich_text':rich('Body')})]
+            return original_children(oid)
+        rows = {}
+        def write(api, sid, oid, markdown):
+            self.writer('set_markdown', (sid, oid, markdown))
+            # Minimal replay of API-allocated HTML marker records. Literal code
+            # is deliberately excluded from this finalisation fixture.
+            lines = re.findall(r'^<!-- any:block .* -->$', markdown, re.M)
+            rows[oid] = [{'id':oid+':'+str(i), 'type':'html', 'text':line} for i,line in enumerate(lines)]
+        e = self.engine()
+        with patch.object(self.source, 'children', side_effect=children), \
+             patch.object(e, 'media', return_value=ImportedFile('any://f/space/photo', 'photo.png')), \
+             patch('notion_migration.backend.server_version', return_value=(0,5,0)), \
+             patch('notion_migration.backend.set_markdown', side_effect=write), \
+             patch('notion_native.records', side_effect=lambda engine,page:rows[engine.mapping[page]]), \
+             patch('notion_native.patch_block') as update:
+            report = e.run()
+        markdown = next(body[-1] for path,body in self.calls
+                        if path=='set_markdown' and body[1]==e.mapping[ROOT])
+        for marker in ('any:collapsible', 'any:callout', '"kind":"embed"',
+                       '"kind":"image-caption"', '"kind":"synced-block"', '"kind":"inline-view"'):
+            self.assertIn(marker, markdown)
+        self.assertIn('```html\n<!-- any:columns', markdown)
+        self.assertIn('original', report['synced_blocks'])
+        self.assertTrue(any('/editor_blocks/' in call.args[3]['text'] for call in update.call_args_list))
+        self.assertFalse(any('synchronisé' in issue and 'non résolu' in issue
+                             for row in e.results.values() for issue in row['issues']))
     def test_resume_reuses_checkpoint_identities_instead_of_creating_duplicates(self):
         first=self.engine();report=first.run();self.calls.clear()
         def columns(target,sid,cid):

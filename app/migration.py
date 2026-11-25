@@ -13,7 +13,7 @@ from copy import deepcopy
 from rich_content import (ImportedFile, inline_html, native_columns, native_toggle,
                           descendant_end, rebase, depth as block_depth, youtube_markdown,
                           file_html, file_anchor_html, checkbox_html, remove_unsupported_inline, image_markdown,
-                          image_width, legacy_markup, envelopes_supported, feature_envelope_supported)
+                          image_width)
 from file_transfer import FileLibrary, strip_import_prefix
 from view_conversion import (choice_options, enrich_descriptor, ViewConverter,
                              create_saved_views, modify_records, UnsupportedView)
@@ -857,7 +857,7 @@ def hydrate_bookmark_blocks(doc, source, sid, names, cache=None):
     return doc
 
 
-def write_markdown_with_embeds(target, sid, oid, markdown, native_embeds, issues, markers=True):
+def write_markdown_with_embeds(target, sid, oid, markdown, native_embeds, issues):
     """Resolve legacy markers to native envelopes; never emit iframe source."""
     for index,embed in enumerate(native_embeds):
         replacement=youtube_markdown(embed.get('url',''),str(index),page_text('label.youtube'))
@@ -865,7 +865,7 @@ def write_markdown_with_embeds(target, sid, oid, markdown, native_embeds, issues
             replacement=titled_link(page_text('label.embed'),embed.get('url',''))
             issues.add('Intégration non reconnue : lien externe de remplacement')
         markdown=markdown.replace(f'ANYTWO_NATIVE_EMBED_{index:04d}_PLACEHOLDER',replacement)
-    return set_markdown(target,sid,oid,markdown if markers else legacy_markup(markdown))
+    return set_markdown(target,sid,oid,markdown)
 
 
 def source_format(name, value, metadata):
@@ -975,7 +975,6 @@ class Engine:
         self.view_reports=[]
         self.view_hosts={}
         self.widget_warnings = set()
-        self.native_markup=True
         self.language=language(plan.get('language'))
         self.templates = Templates(self)
         self.type_defs={}; self.collection_reports=[]; self.results={}; self.report={'status':'running','objects':[],'errors':[], 'warnings':{},'created':{}}
@@ -1006,10 +1005,6 @@ class Engine:
     def emit(self, event, **data): return {'event':event, **data}
 
     def warn(self, oid, message): self.results[oid]['issues'].add(message)
-
-    def page_markdown(self, markdown):
-        """Keep native envelopes only on clients that still interpret them."""
-        return markdown if self.native_markup else legacy_markup(markdown)
 
     def remove_import_artifacts(self, documents, vocabulary):
         """Drop Anytwo columns that only mirror Anytype import bookkeeping.
@@ -1507,11 +1502,6 @@ class Engine:
         from anytwo_backend import server_version
         activate(self.language)
         self.destination_version = server_version(self.target)
-        # Anytwo 0.5+ shows the native comment envelopes as page text, so the
-        # importer keeps a plain Markdown rendering that degrades gracefully.
-        self.native_markup = envelopes_supported(self.destination_version)
-        if not self.native_markup:
-            yield self.emit('message', message='Ce client Anytwo affiche les marqueurs de mise en page : blocs repliables, colonnes et intégrations sont écrits en Markdown simple.')
         plan=self.plan; inv=self.inv
         if plan.get('mode') not in ('simple', None):
             raise APIError('Le mode synchronisation nécessite une gestion des mises à jour : il n’est pas activé dans cette version. Choisissez « Import simple ».')
@@ -1812,8 +1802,7 @@ class Engine:
                 for index, block in enumerate(doc.get('blocks') or []):
                     if isinstance(block, dict) and block.get('type') in ('table_of_contents','tableOfContents'):
                         token = marker('toc', oid, str(block.get('id') or index))
-                        if (block_depth(block) == 0
-                                and feature_envelope_supported(self.destination_version, 'table-of-contents')):
+                        if block_depth(block) == 0:
                             block.update(type='any2any_toc', markdown=envelope(
                                 'table-of-contents', instance_id(oid, str(block.get('id') or index)), {}, ''))
                         else:
@@ -1890,7 +1879,7 @@ class Engine:
                 markdown += '\n\n'+notice('notice.partial_properties')
             if markdown.strip():
                 try:
-                    write_markdown_with_embeds(self.target,self.dest_sid,r['target_id'],markdown,markdown_embeds,issues,markers=self.native_markup)
+                    write_markdown_with_embeds(self.target,self.dest_sid,r['target_id'],markdown,markdown_embeds,issues)
                 except APIError as e:
                     # Retry a conservative representation rather than replacing
                     # the entire page by one warning and losing all its text.
@@ -1907,13 +1896,12 @@ class Engine:
                     if self.property_previews.get(oid):
                         fallback='\n\n'.join([*self.property_previews[oid],fallback])
                     try:
-                        set_markdown(self.target,self.dest_sid,r['target_id'],self.page_markdown(fallback))
+                        set_markdown(self.target,self.dest_sid,r['target_id'],fallback)
                         r['issues'].add('Rendu riche rejeté par Anytwo : version simplifiée importée')
                     except APIError as e2:
                         r['errors'].append(f'Contenu : {e}; tentative de repli : {e2}')
                         try:
-                            set_markdown(self.target,self.dest_sid,r['target_id'],self.page_markdown(
-                                         notice('notice.content_failed')))
+                            set_markdown(self.target,self.dest_sid,r['target_id'],notice('notice.content_failed'))
                         except APIError:
                             r['errors'].append('Impossible d’insérer le message de remplacement dans la page.')
                 if toc_tokens:
@@ -1946,7 +1934,7 @@ class Engine:
                     lambda fid,label,mime:self.add_file(oid,fid,label,mime),r['issues'],
                     lambda text:replace_inline_links(text,self.mapping,self.dest_sid,self.names,r['issues']),
                     lambda ref:titled_link(self.names.get(ref,page_text('label.linked_object')),reference_link(ref,self.mapping,self.dest_sid,self.names)) if ref in self.mapping else None)
-                set_markdown(self.target,self.dest_sid,r['target_id'],self.page_markdown(content))
+                set_markdown(self.target,self.dest_sid,r['target_id'],content)
                 r['status']='partial' if r['issues'] else 'imported'
             except (APIError,ValueError,TypeError,KeyError) as exc:r['errors'].append(str(exc))
             yield self.emit('object',**{**r,'issues':sorted(r['issues'])})

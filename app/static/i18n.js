@@ -10,7 +10,6 @@
     'Anytype → Anytwo · Outil de migration · Bêta 0.11.0':['Anytype → Anytwo · Migration tool · Beta 0.11.0','Anytype → Anytwo · Migrationstool · Beta 0.11.0'],
     'Autorisation Anytype · Importateur':['Anytype authorization · Importer','Anytype-Autorisierung · Importer'],
     'Outil de migration · Bêta 0.11.0':['Migration tool · Experimental beta 0.11.0','Migrationstool · Experimentelle Beta 0.11.0'],
-    'Ce client Anytwo affiche les marqueurs de mise en page : blocs repliables, colonnes et intégrations sont écrits en Markdown simple.':['This Anytwo client displays layout markers, so toggles, columns and embeds are written as plain Markdown.','Dieser Anytwo-Client zeigt Layout-Marker an, daher werden Umschalter, Spalten und Einbettungen als einfaches Markdown geschrieben.'],
     'D’où souhaitez-vous importer ?':['Where would you like to import from?','Aus welcher App möchten Sie importieren?'],
     'Choisissez votre application source. Nous vérifierons ensuite les accès nécessaires.':['Choose your source app. We will then check the required connections.','Wählen Sie Ihre Quell-App. Anschließend prüfen wir die benötigten Zugänge.'],
     'Depuis l’application sur cet ordinateur':['From the app on this computer','Aus der App auf diesem Computer'],

@@ -56,7 +56,7 @@ Toggles and collapsible headings use the native `any:collapsible` markers. Colum
 
 YouTube videos use a native `embed` envelope. Audio files use the file links recognised by the client player. Icons use the universal `any.icon` property, with an emoji or a file reference. Enriched bookmarks become titled links.
 
-On versions that store HTML comments as generic blocks, the `any:collapsible`, `any:columns` and `any:block` envelopes are written as plain Markdown: bold or heading titles, sequential columns, a link for embeds. The native dynamic table of contents is kept when supported and never disappears silently.
+The current Anytwo client interprets these native markers even when the server stores them as `html` blocks. They are sent without global stripping: removing them would lose column structure, inline views, embedded properties, captions and block synchronization. Unsupported source elements still receive individual, reported adaptations.
 
 Underlining depends on the Markdown support of the Anytwo version. Text, background, block, cell and callout colours, alignment and advanced layouts with views inside callouts or columns remain limitations. Code tags are kept literally, including inside code blocks.
 

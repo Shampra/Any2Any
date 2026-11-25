@@ -7,7 +7,6 @@ from api_clients import APIError, Anytype, anytype_property_definitions
 from migration import (Engine, render_blocks, declared_column_shape, declared_properties, slug,
                        custom_properties, import_artifacts, internal_record_property, mapped_relation,
                        relation_references, write_markdown_with_embeds)
-from rich_content import legacy_markup, envelopes_supported, feature_envelope_supported
 from view_conversion import (ViewConverter, UnsupportedView, enrich_descriptor,
                              create_saved_views, modify_records)
 
@@ -492,67 +491,7 @@ class ImportArtifactTests(unittest.TestCase):
         self.assertIsNone(relation_references(['a',None],mapping))
 
 
-    def test_envelopes_degrade_to_plain_markdown(self):
-        doc={'blocks':[{'type':'toggle','text':'Secret stash'},
-                       {'type':'paragraph','indent':1,'text':'Hidden note'},
-                       {'type':'toggle_heading_2','text':'Open question'},
-                       {'type':'paragraph','indent':1,'text':'Answer'}]}
-        native=render_blocks(doc,{},'s',{},False,None,set())
-        self.assertIn('<!-- any:collapsible {"open":false} -->',native)
-        plain=legacy_markup(native)
-        self.assertNotIn('<!--',plain)
-        self.assertIn('**Secret stash**',plain)
-        self.assertIn('Hidden note',plain)
-        self.assertIn('## Open question',plain)
-
-    def test_legacy_markup_preserves_fenced_markers(self):
-        markdown='Before\n\n```html\n<!-- any:block {"kind":"embed"} -->\n```\n\nAfter'
-        self.assertEqual(legacy_markup(markdown),
-                         'Before\n\n```html\n<!-- any:block {"kind":"embed"} -->\n```\n\nAfter')
-
-    def test_legacy_markup_preserves_longer_and_tilde_fences(self):
-        longer='````md\n```\n<!-- any:block {"kind":"embed"} -->\n```\n````'
-        self.assertEqual(legacy_markup(longer),longer)
-        tildes='~~~\n<!-- any:block {"kind":"embed"} -->\n~~~'
-        self.assertEqual(legacy_markup(tildes),tildes)
-
-    def test_legacy_markup_protects_an_unclosed_fence(self):
-        markdown='Intro\n```\n<!-- any:block {"kind":"embed"} -->\nnever closed'
-        self.assertEqual(legacy_markup(markdown),markdown)
-
-    def test_legacy_markup_still_strips_envelopes_outside_fences(self):
-        markdown='<!-- any:columns {"widths":[1,1]} -->\n\n```\n<!-- kept -->\n```'
-        plain=legacy_markup(markdown)
-        self.assertNotIn('any:columns',plain)
-        self.assertIn('<!-- kept -->',plain)
-
-    def test_legacy_markup_preserves_native_toc(self):
-        toc=('<!-- any:block {"v":1,"kind":"table-of-contents","schema":1,'
-             '"instance":"i1","data":{}} -->\n\n\n\n<!-- /any:block {"instance":"i1"} -->')
-        markdown='Intro\n\n'+toc+'\n\nOutro'
-        plain=legacy_markup(markdown)
-        self.assertIn(toc,plain)
-        self.assertIn('Intro',plain)
-        self.assertIn('Outro',plain)
-
-    def test_feature_envelope_support_is_per_feature(self):
-        self.assertTrue(feature_envelope_supported((0,5,0),'table-of-contents'))
-        self.assertFalse(feature_envelope_supported((0,5,0),'collapsible'))
-        self.assertFalse(feature_envelope_supported((0,5,0),'columns'))
-        self.assertFalse(feature_envelope_supported((0,5,0),'embed'))
-        self.assertTrue(feature_envelope_supported((0,4,9),'collapsible'))
-        self.assertFalse(feature_envelope_supported((0,3,6),'table-of-contents'))
-
-    def test_layout_embed_and_image_envelopes_are_stripped(self):
-        markdown='\n\n'.join(['<!-- any:columns {"widths":[1,1]} -->','<!-- any:column -->','Left',
-                              '<!-- any:column -->','Right','<!-- /any:columns -->',
-                              '<!-- any:block {"kind":"embed"} -->','[Vidéo](https://youtu.be/x)',
-                              '<!-- /any:block {"instance":"i"} -->','![p](file:///a.png)<!-- any:image-width=320 -->'])
-        plain=legacy_markup(markdown)
-        self.assertNotIn('<!--',plain)
-        self.assertEqual(plain, 'Left\n\nRight\n\n[Vidéo](https://youtu.be/x)\n\n![p](file:///a.png)')
-
-    def test_engine_writes_plain_markdown_for_a_newer_client(self):
+    def test_engine_preserves_native_toggle_on_current_server(self):
         class Source:
             def object_detail(self, sid, oid):
                 return {'properties':{'name':'Toggled'},
@@ -576,27 +515,10 @@ class ImportArtifactTests(unittest.TestCase):
              patch('anytwo_backend.server_version',return_value=(0,5,0)):
             events=list(Engine(Source(),object(),inventory,plan).run())
         self.assertTrue(written)
-        self.assertNotIn('<!--', written[0])
-        self.assertIn('**Secret stash**', written[0])
-        self.assertTrue(any('marqueurs de mise en page' in str(e.get('message','')) for e in events))
-
-    def test_envelope_support_follows_the_client_version(self):
-        self.assertTrue(envelopes_supported(()))
-        self.assertTrue(envelopes_supported((0,4,9)))
-        self.assertFalse(envelopes_supported((0,5,0)))
-        self.assertFalse(envelopes_supported((0,5,2)))
-
-    def test_write_path_drops_markers_when_the_client_rejects_them(self):
-        written=[]
-        with patch('migration.set_markdown',side_effect=lambda *a: written.append(a[-1])):
-            write_markdown_with_embeds(object(),'s','o','<!-- any:collapsible {"open":false} -->\n\nTitle\n\n'
-                                       '<!-- any:collapsible-content -->\n\nBody\n\n<!-- /any:collapsible -->',
-                                       [],set(),markers=True)
-            write_markdown_with_embeds(object(),'s','o','<!-- any:collapsible {"open":false} -->\n\nTitle\n\n'
-                                       '<!-- any:collapsible-content -->\n\nBody\n\n<!-- /any:collapsible -->',
-                                       [],set(),markers=False)
-        self.assertIn('<!-- any:collapsible',written[0])
-        self.assertEqual(written[1],'**Title**\n\nBody')
+        self.assertIn('<!-- any:collapsible {"open":false} -->', written[0])
+        self.assertIn('<!-- any:collapsible-content -->', written[0])
+        self.assertIn('Hidden note', written[0])
+        self.assertFalse(any('marqueurs de mise en page' in str(e.get('message','')) for e in events))
 
     def _relation_columns(self, adventure):
         class Source:
