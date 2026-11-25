@@ -1,9 +1,20 @@
 # Changes / Modifications
 
-## Unreleased — 2026-11-24 — Anytype import corrections / Correctifs d’import Anytype
+## 0.11.0 — 2026-11-24 — Mentions, clean properties, bilingual interface and Anytype import corrections
 
 ### English
 
+- Use Anytwo’s read-only creation stamp for Anytype system creation-date columns and view sorts; avoid duplicate collection properties while preserving custom homonyms.
+
+- Convert Anytype inline `@` mentions to native object links in page text, tables, columns and the description. Mention targets join the import when linked items are enabled; otherwise the label stays as plain text with a report warning.
+- Stop importing Anytype record bookkeeping (`Source object`, `template_name_prefill_type` and other internal keys) as Anytwo columns. Classification uses the verified property identity, never a label or a `template_` prefix, so custom properties such as `template_notes` are preserved; cleanup only removes columns this import created and tracked, and untranslatable template settings are reported.
+- Fix property write failures: empty url/email/phone/number/date values are skipped instead of aborting the property, and relation columns always receive `any://` URI arrays.
+- Stop creating a duplicate `X (Anytype)` text column when relation values point to objects that are not imported: the relation column is kept and only the missing references are dropped.
+- Write page warnings and labels in the language chosen in the interface (French, English, German), and remove the bold markers that Anytwo displayed verbatim inside quotes.
+- Preserve native toggles, columns, inline views, embedded properties, synced blocks, captions and media on the current Anytwo client. Server 0.5 HTML records remain valid editor markup; no version-based stripping is applied. Literal code and empty paragraphs are preserved.
+- Translate the whole interface: every static label, plus report issues, API errors, progress and simulation messages, in English and German. The import window now fits the screen without zooming out.
+- Publish French and English editions of every technical guide, with language switchers.
+- Add a macOS double-click launcher (`Any2Any.command`) next to `demarrer.bat` and the standalone Windows executable.
 - Import native Anytwo templates with their content, properties and unambiguous collection defaults. Preserve an existing destination default when it differs.
 - Convert top-level Anytype tables of contents to native dynamic blocks on compatible Anytwo versions. Keep nested tables of contents as static block links.
 - Preserve compatible nested AND/OR filters, single-select comparisons and empty-value conditions in both stored queries and client controls.
@@ -14,6 +25,17 @@
 
 ### Français
 
+- Utiliser la date de création native en lecture seule d’Anytwo pour les colonnes et tris basés sur la date système Anytype, sans doublon de propriété ; préserver les propriétés personnalisées homonymes.
+
+- Convertir les mentions `@` Anytype en liens d’objet natifs dans le texte, les tableaux, les colonnes et la description. Les cibles rejoignent l’import avec l’option des éléments liés ; sinon le libellé reste en texte brut avec un avertissement dans le rapport.
+- Ne plus importer la comptabilité interne d’Anytype (`Source object`, `template_name_prefill_type` et autres clés internes) comme colonnes Anytwo. La classification utilise l’identité vérifiée de la propriété, jamais un libellé ni un préfixe `template_` : les propriétés personnalisées telles que `template_notes` sont conservées ; le nettoyage ne retire que les colonnes créées et tracées par cet import, et les réglages de template non transposables sont signalés.
+- Corriger les échecs d’écriture de propriétés : les valeurs url/email/téléphone/nombre/date vides sont ignorées au lieu d’annuler la propriété, et les colonnes de relation reçoivent toujours des tableaux d’URI `any://`.
+- Ne plus créer de colonne texte en double « X (Anytype) » quand une relation pointe vers des objets non importés : la colonne de relation est conservée et seules les références absentes sont écartées.
+- Écrire les avertissements et libellés des pages dans la langue choisie dans l’interface (français, anglais, allemand) et retirer les marqueurs de gras qu’Anytwo affichait tels quels dans les citations.
+- Conserver les toggles, colonnes, vues en ligne, propriétés intégrées, blocs synchronisés, légendes et médias natifs sur le client Anytwo actuel. Les blocs HTML du serveur 0.5 restent un format valide pour l’éditeur ; aucun retrait de marqueurs selon la version. Le code littéral et les paragraphes vides sont préservés.
+- Traduire toute l’interface : libellés statiques, problèmes du bilan, erreurs d’API, progression et messages de simulation, en anglais et en allemand. La fenêtre d’import tient désormais dans l’écran sans zoom arrière.
+- Publier chaque guide technique en français et en anglais, avec un sélecteur de langue.
+- Ajouter un lanceur macOS à double-clic (`Any2Any.command`) à côté de `demarrer.bat` et de l’exécutable Windows autonome.
 - Importer les templates natifs Anytwo avec leur contenu, leurs propriétés et leur défaut de collection lorsqu’il est déterminable. Conserver un défaut cible existant lorsqu’il diffère.
 - Convertir les sommaires Anytype de premier niveau en blocs dynamiques natifs sur les versions compatibles. Conserver les sommaires imbriqués sous forme de liens statiques vers les blocs.
 - Reprendre les filtres ET/OU imbriqués compatibles, les comparaisons de select simple et les conditions de valeurs vides, dans la requête et les contrôles du client.

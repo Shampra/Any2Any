@@ -265,8 +265,7 @@ def collection_presentation(converter, view, scope, query, settings, issues):
         (hidden if column.get('hidden') else visible).append(field)
     if view.get('columns'):
         # The client computes hidden columns as the complement of visible.
-        # Include system fields in the order so newly imported timestamps do
-        # not appear alongside the explicitly preserved source dates.
+        # Include system fields so the visible list remains authoritative.
         all_fields=['name','type','collections','createdAt','author','modifiedAt','modifiedBy']
         all_fields.extend(path.split('.',1)[1] for bucket in converter.bindings.values()
                           for path,_,_ in bucket if path.startswith(scope+'.'))

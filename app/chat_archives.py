@@ -2,6 +2,7 @@
 from urllib.parse import quote
 from datetime import datetime
 from api_clients import APIError, paginated, item_id, item_name
+from page_text import page_text
 from rich_content import image_markdown, file_html, remove_unsupported_inline
 
 
@@ -54,46 +55,46 @@ def label(value):
 
 def markdown(history, files, load_file, issues, rewrite=lambda text:text, object_link=lambda oid:None):
     messages=history['messages'];byid={m['id']:m for m in messages}
-    lines=['Archive du chat **'+label(history['name'])+'** — '+str(len(messages))+' message(s).',
-           'Les auteurs et dates ci-dessous proviennent d’Anytype. Cette page est une archive, pas une conversation active.']
+    lines=[page_text('chat.title',name=label(history['name']),count=len(messages)),
+           page_text('chat.intro')]
     day=None
     for message in messages:
         current=str(message.get('at') or '')[:10]
         if current!=day:
-            lines.append('## '+(current or 'Date inconnue'));day=current
-        head='**'+label(message.get('author') or message.get('author_id') or 'Auteur inconnu')+'** · '+stamp(message.get('at'))
-        if message.get('edited_at'):head+=' · modifié le '+stamp(message['edited_at'])
+            lines.append('## '+(current or page_text('chat.unknown_date')));day=current
+        head='**'+label(message.get('author') or message.get('author_id') or page_text('chat.unknown_author'))+'** · '+stamp(message.get('at'))
+        if message.get('edited_at'):head+=' · '+page_text('chat.edited',stamp=stamp(message['edited_at']))
         body=[head]
         reply=message.get('reply_to') or message.get('reply_to_message_id')
         if reply:
             if isinstance(reply,dict):reply=reply.get('id')
             original=byid.get(reply)
-            body.append('↪ En réponse à '+(label(original.get('author') or 'Auteur inconnu')+' : '+label(original.get('text','')[:160]) if original else 'un message absent de cet historique ('+label(reply)+')'))
+            body.append(page_text('chat.reply',target=(label(original.get('author') or page_text('chat.unknown_author'))+' : '+label(original.get('text','')[:160]) if original else page_text('chat.reply_missing',id=label(reply)))))
         text=str(message.get('text') or '')
         cleaned=remove_unsupported_inline(text)
         if cleaned!=text:issues.add('Mise en forme de chat non prise en charge : texte conservé sans balises')
         if cleaned:body.append(rewrite(cleaned))
         for attachment in message.get('attachments') or []:
-            fid=attachment.get('id');kind=attachment.get('type');name=attachment.get('name') or 'Pièce jointe'
+            fid=attachment.get('id');kind=attachment.get('type');name=attachment.get('name') or page_text('chat.attachment')
             if not fid:
-                issues.add('Pièce jointe de chat sans identifiant');body.append('Pièce jointe indisponible.');continue
+                issues.add('Pièce jointe de chat sans identifiant');body.append(page_text('chat.attachment_unavailable',name=label(name)));continue
             if kind=='link':
                 link=object_link(fid)
                 if link:body.append(link)
                 else:
                     issues.add('Objet lié à un chat non importé')
-                    body.append('Objet lié non importé : '+label(name)+' ('+label(fid)+')')
+                    body.append(page_text('chat.object_missing',name=label(name),id=label(fid)))
                 continue
             if not files:
-                issues.add('Pièces jointes de chat non importées (option fichiers désactivée)');body.append('Pièce jointe non importée : '+label(name));continue
+                issues.add('Pièces jointes de chat non importées (option fichiers désactivée)');body.append(page_text('chat.attachment_missing',name=label(name)));continue
             try:
                 uri=load_file(fid,name,None);name=getattr(uri,'name',name)
                 body.append(image_markdown(uri,name) if kind=='image' else file_html(uri,name))
             except (APIError,ValueError) as exc:
-                issues.add('Pièce jointe de chat indisponible : '+str(exc));body.append('Pièce jointe indisponible : '+label(name))
+                issues.add('Pièce jointe de chat indisponible : '+str(exc));body.append(page_text('chat.attachment_unavailable',name=label(name)))
         if message.get('reactions'):
-            body.append('Réactions : '+ ' · '.join(label(k)+' '+str(v if isinstance(v,int) else len(v)) for k,v in message['reactions'].items()))
+            body.append(page_text('chat.reactions',**{'list':' · '.join(label(k)+' '+str(v if isinstance(v,int) else len(v)) for k,v in message['reactions'].items())}))
         quoted='\n>\n'.join('\n'.join('> '+line for line in part.split('\n')) for part in body)
         lines.extend([quoted,'---'])
-    if not messages:lines.append('Ce chat ne contient aucun message.')
+    if not messages:lines.append(page_text('chat.empty'))
     return '\n\n'.join(lines)

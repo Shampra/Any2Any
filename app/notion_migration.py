@@ -13,6 +13,7 @@ from notion_source import MAX_ITEMS, MAX_BLOCKS, notion_id, title, text
 from notion_content import Content, escape
 from notion_icons import content_icon,emoji
 from rich_content import ImportedFile, image_markdown, file_html
+from page_text import page_text, activate, language
 from file_transfer import FileLibrary
 from notion_files import download, filename
 from notion_views import normalise, converter
@@ -85,6 +86,7 @@ def validate_options(data):
 class Engine:
     def __init__(self,source,target,selection,options,progress=lambda message:None,check=lambda:None,save=lambda report:None,resume=None):
         self.source=source;self.target=target;self.selection=deepcopy(selection);self.options=validate_options(options)
+        self.language=language(selection.get('language'))
         self.progress=progress;self.check=check;self.save=save;self.sid=None
         self.pages=self.selection['pages'];self.schemas=self.selection['schemas'];self.blocks={};self.views={};self.databases={}
         self.mapping={};self.collections={};self.props={};self.names={};self.view_hosts={};self.uploads={};self.rollups=set()
@@ -562,6 +564,7 @@ class Engine:
 
     def run(self):
         self.destination_version = backend.server_version(self.target)
+        activate(self.language)
         self.collect();self.check()
         self.report['source_schemas']=deepcopy(self.schemas);self.report['source_views']=deepcopy(self.views)
         for oid,page in self.pages.items():
@@ -620,7 +623,7 @@ class Engine:
                     except APIError:issues.add('Icône image non appliquée')
             if page.get('cover'):
                 uri=self.media(oid,page['cover'],'image')
-                if uri:markdown=image_markdown(uri,'Couverture')+'\n\n'+markdown;issues.add('Couverture conservée comme image en tête de page')
+                if uri:markdown=image_markdown(uri,page_text('label.cover_short'))+'\n\n'+markdown;issues.add('Couverture conservée comme image en tête de page')
             try:backend.set_markdown(self.target,self.sid,self.mapping[oid],markdown)
             except APIError as exc:self.results[oid]['errors'].append('Contenu : '+str(exc))
             self.results[oid]['status']='partial' if issues or self.results[oid]['errors'] else 'imported';self.checkpoint()

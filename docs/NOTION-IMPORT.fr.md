@@ -1,5 +1,7 @@
 # Contrat de conversion Notion vers Anytwo
 
+**[Français](NOTION-IMPORT.fr.md) · [English](NOTION-IMPORT.en.md)**
+
 ## Sélection et lecture
 
 La navigation propose trois niveaux : racine (0), niveau 1, niveau 2. Les bases et sources de données comptent comme des niveaux structurels. Les éléments plus profonds ne sont ni affichés ni préchargés par la navigation, même si la recherche initiale les a déjà recensés. La racine d’un élément au parent inaccessible reste présentée dans la séparation des autres éléments accessibles.

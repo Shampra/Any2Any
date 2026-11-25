@@ -10,7 +10,7 @@ La version Anytype stable est `F:/Documents/ChatGPT/Any2Any`, branche `main`.
 - L’API de destination commune est `anytwo_backend.py`. Les implémentations existantes restent dans `api_clients.py` avec compatibilité ; ne pas dupliquer les écritures Anytwo dans un futur lecteur Notion.
 - Les tests de régression Anytype restent obligatoires pour une modification commune. Maintenir également les tests du lecteur et des routes Notion.
 - Isoler les correctifs communs dans des commits indépendants de Notion. Les intégrer d’abord dans main après validation/autorisations de publication, puis reprendre main dans develop/notion. Ne jamais fusionner globalement develop/notion dans main avant validation de la version commune.
-- Consulter `docs/DEVELOPMENT.fr.md` et `docs/COMMON-FIXES.md` au début du travail. Les conversations ne partagent pas automatiquement leur contexte ; noter les décisions utiles dans ces documents.
+- Consulter `docs/DEVELOPMENT.fr.md` et `docs/COMMON-FIXES.md` au début du travail. Chaque guide existe aussi en anglais (`.en.md`) ; maintenir les deux éditions. Les conversations ne partagent pas automatiquement leur contexte ; noter les décisions utiles dans ces documents.
 - Ne pas publier de branche/release sans demande. Ne pas démarrer de migration réelle pour une simple vérification technique.
 
 - L’utilisateur a demandé la préparation de l’application commune et un choix Anytype/Notion au démarrage. Préparer une archive publique nettoyée, sans pousser ni publier sans nouvelle demande. Les fichiers privés reports restent exclus et sont conservés ; le nettoyage vise les caches et la séparation des outils de développement.

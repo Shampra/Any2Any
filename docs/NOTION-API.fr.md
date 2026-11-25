@@ -1,5 +1,7 @@
 # Notion → Anytwo : API, connexion et stratégie de conversion
 
+**[Français](NOTION-API.fr.md) · [English](NOTION-API.en.md)**
+
 Analyse du 30 octobre 2026, version d’API retenue : `2026-03-11`.
 
 ## Ce qui fonctionne dans cette branche

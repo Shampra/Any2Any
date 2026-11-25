@@ -1,5 +1,7 @@
 # Relations et rollups Anytwo : vérification API
 
+**[Français](ANYTWO-RELATIONS-ROLLUPS.fr.md) · [English](ANYTWO-RELATIONS-ROLLUPS.en.md)**
+
 Vérification du client local le 31 octobre 2026, en lecture seule. Aucun test de migration n’a été écrit dans Anytwo.
 
 ## Relation

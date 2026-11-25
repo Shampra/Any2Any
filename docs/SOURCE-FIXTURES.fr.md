@@ -1,5 +1,7 @@
 # Pages de démonstration des sources
 
+**[Français](SOURCE-FIXTURES.fr.md) · [English](SOURCE-FIXTURES.en.md)**
+
 Les exemples JSON sont dans `examples/notion-test-page.json` et `examples/anytype-test-page.json`. Ils décrivent les blocs de base, sans identifiant privé ni clé.
 
 `tools/create_test_pages.py` est un outil explicite de création de données fictives, indépendant de l’importeur en lecture seule. Sans argument, il génère seulement les exemples JSON. `--apply` active les écritures demandées ; pour Notion, il faut aussi nommer le workspace attendu :

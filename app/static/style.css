@@ -93,7 +93,7 @@
 
 /* Isolated Notion source flow */
 .source-choice{display:flex;align-items:center;gap:16px;margin:0 0 24px;padding:16px 20px;border:1px solid var(--border,#ddd);border-radius:12px;background:var(--surface,#fff)}
-.source-choice label{font-weight:650}.source-choice span{font-size:12px;color:#777}.source-choice select,.notion-stack select{padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;max-width:100%}
+.source-choice label{font-weight:650}.source-choice span{font-size:12px;color:#777}.source-choice select,.notion-stack select{padding:10px 34px 10px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;max-width:100%;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2396a0b1' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:10px 6px;cursor:pointer}
 .notion-info{padding:14px 18px;background:#fff8e8;border:1px solid #ebd3a0;border-radius:10px;margin:0 0 20px}
 .notion-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}.notion-stack{display:flex;flex-direction:column;gap:14px;padding:22px}
 .notion-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.notion-actions .text-input{flex:1;min-width:180px}
@@ -121,3 +121,10 @@
 .source-dialog{width:min(100%,560px);padding:32px}.source-buttons{display:grid;grid-template-columns:1fr 1fr;gap:16px}.source-app-button{border:1px solid #ddd8f1;border-radius:12px;background:#faf9ff;padding:26px 16px;text-align:center;color:#39324c;cursor:pointer}.source-app-button strong{display:block;font-size:20px;margin-bottom:10px}.source-app-button span{display:block;font-size:12px;line-height:1.5;color:#716a83}.source-app-button:hover{border-color:#8b73df;background:#f1edff}.source-app-button:focus-visible{outline:3px solid #a391e8;outline-offset:3px}.source-app-button:disabled{opacity:.55;cursor:wait}.source-dialog .dialog-head p{line-height:1.6}@media(max-width:450px){.source-buttons{grid-template-columns:1fr}}
 
 .brand-title small{font-size:11px;font-weight:500;color:#8e97a9;margin-left:5px}
+
+/* Import log dialog: always fit the viewport instead of forcing a zoom out. */
+.log-dialog{width:min(100%,820px);max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px);display:flex;flex-direction:column;overflow:hidden}
+.log-dialog .log-head,.log-dialog .dialog-footer{flex:0 0 auto}
+.log-dialog .log-lines{flex:1 1 auto;height:auto;min-height:120px;max-height:none}
+.log-dialog .import-report{flex:0 1 auto;max-height:min(32vh,340px);margin:0 18px 6px}
+@media(max-height:640px){.log-dialog .log-lines{min-height:80px}.log-dialog .import-report{max-height:26vh}}

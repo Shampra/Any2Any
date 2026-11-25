@@ -41,7 +41,7 @@ class MigrationTests(unittest.TestCase):
         warnings=set()
         text=render_blocks(Source().object_detail('src','a'),{'a':'targeta','b':'targetb'},'dest',
                            {'b':'Ma sous-page'},False,lambda *_:None,warnings)
-        self.assertIn('**Attention : collection ou vue intégrée non importée.**',text)
+        self.assertIn('> Attention : collection ou vue intégrée non importée.',text)
         self.assertIn('any://o/dest/targetb',text)
         self.assertIn('Collection / vue intégrée non reproduite',warnings)
         self.assertIn('Couleur d’arrière-plan de bloc',warnings)

@@ -83,6 +83,31 @@ class LogicTests(unittest.TestCase):
         self.assertEqual(identify_links({'blocks':[{'target':'z','text':'z'}]}, {'z','a'},'a'),{'z'})
         self.assertEqual(identify_links({'text':'z'}, {'z'},'a'),set())
 
+    def test_mention_tags_are_conservative_links(self):
+        text=('The <mention object_id="z">Zeta</mention>, '
+              "<mention objectId='a'>Alpha</mention>, "
+              'self <mention object_id="self">Me</mention> and '
+              'unknown <mention object_id="ghost">Ghost</mention>.')
+        self.assertEqual(identify_links({'blocks':[{'type':'paragraph','text':text}]},
+                                        {'z','a','self'},'self'), {'z','a'})
+
+    def test_simulation_follows_mentions_only_with_option(self):
+        class MentionSource(FakeSource):
+            def object_detail(self, sid, oid):
+                if oid=='a':
+                    return {'blocks':[{'type':'paragraph','text':'See <mention object_id="z">Zeta</mention>'}]}
+                return {}
+        inv=build_inventory(MentionSource(),'s')
+        plan={'source_space':{'id':'s','name':'Source'},'selection':{'kind':'collection','collection_id':'c'},
+              'target':{'space_mode':'create','space_name':'Destination','collection_mode':'create','collection_name':'X'},
+              'follow_links':False,'files':False}
+        result='\n'.join(simulate(MentionSource(),inv,plan))
+        self.assertIn('non suivi',result)
+        self.assertNotIn('OBJET : Zeta',result)
+        plan['follow_links']=True
+        result='\n'.join(simulate(MentionSource(),inv,plan))
+        self.assertIn('OBJET : Zeta',result)
+
     def test_simulate_without_or_with_links(self):
         inv=build_inventory(FakeSource(),'s')
         plan={'source_space':{'id':'s','name':'Source'},'selection':{'kind':'collection','collection_id':'c'},

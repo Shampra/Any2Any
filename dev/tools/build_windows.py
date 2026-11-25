@@ -23,7 +23,9 @@ def package_windows(bundle,root=ROOT,output=None):
     contents={p.relative_to(bundle).as_posix():p.read_bytes() for p in bundle.rglob('*') if p.is_file()}
     for name in ('README.md','README.en.md','LICENSE','CHANGELOG.md'):
         contents['documentation/'+name]=(root/name).read_bytes()
-    for name in ('NOTES-TECHNIQUES.fr.md','NOTION-API.fr.md','NOTION-IMPORT.fr.md'):
+    for name in ('NOTES-TECHNIQUES.fr.md','NOTES-TECHNIQUES.en.md',
+                 'NOTION-API.fr.md','NOTION-API.en.md',
+                 'NOTION-IMPORT.fr.md','NOTION-IMPORT.en.md'):
         contents['documentation/docs/'+name]=(root/'docs'/name).read_bytes()
     manifest={name:hashlib.sha256(content).hexdigest() for name,content in contents.items()}
     contents['documentation/BUILD.json']=json.dumps({'version':VERSION,'platform':'Windows x64','sha256':manifest},indent=2).encode()

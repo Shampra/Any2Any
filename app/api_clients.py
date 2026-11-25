@@ -466,6 +466,12 @@ def set_column_value(api: Anytwo, sid, oid, cid, prop_id, value):
                  {'patch': {prop_id: value}})
 
 
+def delete_column(api: Anytwo, sid, cid, prop_id):
+    """Remove a column created by the importer (never a user-owned column)."""
+    return target_write(api, f'/spaces/{_segment(sid)}/collections/{_segment(cid)}/properties/{_segment(prop_id)}',
+                        None, method='DELETE')
+
+
 def set_markdown(api: Anytwo, sid, oid, content):
     return target_write(api, f'/spaces/{_segment(sid)}/objects/{_segment(oid)}/editor/editor_blocks/markdown',
                         {'content': content}, method='PUT', timeout=35)

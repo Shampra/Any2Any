@@ -80,7 +80,7 @@ class TemplateImportTests(unittest.TestCase):
             pid = 'prop-' + name
             columns.setdefault(cid, []).append({'id':pid,'name':name,'kind':kind,'xFormat':form})
             return pid
-        with patch('anytwo_backend.server_version', return_value=(0,4,1)), \
+        with patch('anytwo_backend.server_version', return_value=(0,5,0)), \
              patch('migration.create_space', return_value='dest'), \
              patch('migration.create_collection', return_value='tasks'), \
              patch('migration.create_object', return_value='page'), \
@@ -119,6 +119,22 @@ class TemplateImportTests(unittest.TestCase):
         self.assertEqual(data['data'],{})
         self.assertLess(markdown.index('<!-- /any:block'), markdown.index('# Title'))
         self.assertNotIn('ANY2ANY_NOTION_TOC', markdown)
+
+    def test_current_server_keeps_embedded_property_binding_and_dynamic_toc(self):
+        original = Source.object_detail
+        def detail(source, sid, oid):
+            doc = original(source, sid, oid)
+            if oid == 'a':
+                doc['blocks'].append({'type':'property', 'key':'State', 'id':'state-block'})
+            return doc
+        with patch.object(Source, 'object_detail', detail):
+            _, _, _, bodies, _, _, _ = self.run_import()
+        markdown = next(c.args[3] for c in bodies.call_args_list if c.args[2]=='page')
+        headers = [json.loads(line.removeprefix('<!-- any:block ').removesuffix(' -->'))
+                   for line in markdown.splitlines() if line.startswith('<!-- any:block ')]
+        self.assertTrue(any(h['kind']=='table-of-contents' for h in headers))
+        prop = next(h for h in headers if h['kind']=='property')
+        self.assertEqual(prop['data'], {'space':'dest', 'object':'page', 'owner':'tasks', 'property':'prop-State'})
 
     def test_failed_template_does_not_become_collection_default(self):
         _, _, _, _, _, _, engine = self.run_import()

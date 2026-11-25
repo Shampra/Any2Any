@@ -214,7 +214,8 @@ window.NotionSource=(()=>{
       hide('notion-report-area',false);hide('notion-analysis-progress',false);hide('notion-analysis-spinner',false);hide('notion-cancel',false);$('notion-cancel').disabled=false;$('notion-analysis-progress').classList.remove('error');$('notion-analysis').replaceChildren();
       write('notion-analysis-stage','Lecture de la sélection avant import…');write('notion-analysis-detail','Notion reste en lecture seule.');$('notion-report-area').scrollIntoView({block:'start'});
       if(N.prefetchPromise)await N.prefetchPromise;
-      const request={request_id:crypto.randomUUID(),whole:N.whole,rules:[...N.rules].map(([key,include])=>({key,include})),files:$('notion-files-option').checked,links:!N.whole&&$('notion-links-option').checked,destination:{id:$('notion-target').value,name:$('notion-target-name').value.trim()}};
+      const request={request_id:crypto.randomUUID(),whole:N.whole,rules:[...N.rules].map(([key,include])=>({key,include})),files:$('notion-files-option').checked,links:!N.whole&&$('notion-links-option').checked,destination:{id:$('notion-target').value,name:$('notion-target-name').value.trim()},
+        language:(window.Any2AnyI18n?.getLanguage?.()||'fr')};
       const job=await api('import',request);N.job=job.id;let status;
       do{status=await api('job?id='+encodeURIComponent(job.id));write('notion-analysis-stage',status.message);write('notion-analysis-detail',importDetail(status));if(status.state==='running')await new Promise(resolve=>setTimeout(resolve,600));}while(status.state==='running');
       const root=$('notion-analysis'),report=status.result;
